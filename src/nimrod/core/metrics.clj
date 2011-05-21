@@ -23,7 +23,7 @@
     (if-let [gauge (get @gauges id)]
       (notify-gauge gauge id timestamp value)
       (let [gauge (new-agent nil)]
-        (alter gauges conj [id gauge])
+        (alter gauges assoc id gauge)
         (notify-gauge gauge id timestamp value)
         )
       )
@@ -73,7 +73,7 @@
     (if-let [counter (get @counters id)]
       (notify-counter counter id timestamp value)
       (let [counter (new-agent nil)]
-        (alter counters conj [id counter])
+        (alter counters assoc id counter)
         (notify-counter counter id timestamp value)
         )
       )
@@ -112,7 +112,7 @@
     (if-let [timer (get @timers id)]
       (notify-timer timer id timestamp value)
       (let [timer (new-agent nil)]
-        (alter timers conj [id timer])
+        (alter timers assoc id timer)
         (notify-timer timer id timestamp value)
         )
       )
