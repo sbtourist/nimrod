@@ -1,6 +1,5 @@
 (ns nimrod.core.util
  (:use [clojure.contrib.logging :as log])
- (:import [java.util Date])
  )
 
 (defn new-agent [state]
