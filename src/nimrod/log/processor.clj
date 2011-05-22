@@ -4,7 +4,7 @@
  (:refer-clojure :exclude [spit])
  )
 
-(defonce log-pattern (re-pattern ".*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*"))
+(defonce log-pattern (re-pattern ".*\\[nimrod].*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*"))
 
 (defn- extract [line]
   (let [matches (into [] (rest (re-matches log-pattern line)))]
