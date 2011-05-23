@@ -18,13 +18,13 @@
     )
   )
 
-(defn set-gauge [id timestamp value]
+(defn set-gauge [metric-ns metric-id timestamp value]
   (dosync
-    (if-let [gauge (get @gauges id)]
-      (notify-gauge gauge id timestamp value)
+    (if-let [gauge (get (get @gauges metric-ns {}) metric-id)]
+      (notify-gauge gauge metric-id timestamp value)
       (let [gauge (new-agent nil)]
-        (alter gauges assoc id gauge)
-        (notify-gauge gauge id timestamp value)
+        (alter gauges assoc-in [metric-ns metric-id] gauge)
+        (notify-gauge gauge metric-id timestamp value)
         )
       )
     )
@@ -69,13 +69,13 @@
     )
   )
 
-(defn set-counter [id timestamp value]
+(defn set-counter [metric-ns metric-id timestamp value]
   (dosync
-    (if-let [counter (get @counters id)]
-      (notify-counter counter id timestamp value)
+    (if-let [counter (get (get @counters metric-ns {}) metric-id)]
+      (notify-counter counter metric-id timestamp value)
       (let [counter (new-agent nil)]
-        (alter counters assoc id counter)
-        (notify-counter counter id timestamp value)
+        (alter counters assoc-in [metric-ns metric-id] counter)
+        (notify-counter counter metric-id timestamp value)
         )
       )
     )
@@ -85,37 +85,37 @@
 
 (defn- notify-timer [timer id timestamp value]
   (let [n_timestamp (Long/parseLong timestamp) n_value (Long/parseLong value)]
-  (send timer #(if-let [state %1]
-                 (if (= 0 (state :end))
-                   (let [previous-elapsed-time-average (state :elapsed-time-average)
-                         previous-elapsed-time-variance (state :elapsed-time-variance)
-                         start (state :start)
-                         samples (inc (state :samples))
-                         elapsed-time (- n_value start)
-                         elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
-                         elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
-                     (conj state {:timestamp n_timestamp
-                                  :end n_value
-                                  :elapsed-time elapsed-time
-                                  :elapsed-time-average elapsed-time-average
-                                  :elapsed-time-variance elapsed-time-variance
-                                  :samples samples})
+    (send timer #(if-let [state %1]
+                   (if (= 0 (state :end))
+                     (let [previous-elapsed-time-average (state :elapsed-time-average)
+                           previous-elapsed-time-variance (state :elapsed-time-variance)
+                           start (state :start)
+                           samples (inc (state :samples))
+                           elapsed-time (- n_value start)
+                           elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
+                           elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
+                       (conj state {:timestamp n_timestamp
+                                    :end n_value
+                                    :elapsed-time elapsed-time
+                                    :elapsed-time-average elapsed-time-average
+                                    :elapsed-time-variance elapsed-time-variance
+                                    :samples samples})
+                       )
+                     (conj state {:timestamp n_timestamp :start n_value :end 0 :elapsed-time 0})
                      )
-                   (conj state {:timestamp n_timestamp :start n_value :end 0 :elapsed-time 0})
+                   {:id id :timestamp n_timestamp :start n_value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
                    )
-                 {:id id :timestamp n_timestamp :start n_value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
-                 )
+      )
     )
   )
-  )
 
-(defn set-timer [id timestamp value]
+(defn set-timer [metric-ns metric-id timestamp value]
   (dosync
-    (if-let [timer (get @timers id)]
-      (notify-timer timer id timestamp value)
+    (if-let [timer (get (get @timers metric-ns {}) metric-id)]
+      (notify-timer timer metric-id timestamp value)
       (let [timer (new-agent nil)]
-        (alter timers assoc id timer)
-        (notify-timer timer id timestamp value)
+        (alter timers assoc-in [metric-ns metric-id] timer)
+        (notify-timer timer metric-id timestamp value)
         )
       )
     )
