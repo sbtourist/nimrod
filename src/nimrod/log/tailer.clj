@@ -27,8 +27,8 @@
 
 (defn start-tailer [log interval metrics]
   (dosync
-    (let [id (swap! tailers-sequence inc) tailer (new-agent (create-tailer id log interval metrics))]
-      (alter tailers assoc (Long/toString id) {:log log :tailer tailer})
+    (let [id (Long/toString (swap! tailers-sequence inc)) tailer (new-agent (create-tailer id log interval metrics))]
+      (alter tailers assoc id {:log log :tailer tailer})
       id
       )
     )

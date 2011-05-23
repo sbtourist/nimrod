@@ -104,11 +104,19 @@
     )
   )
 
+(defn- generic-list-metrics [metric-ns metrics-collection]
+  (if-let [metrics (@metrics-collection metric-ns)]
+    (into [] (keys metrics))
+    nil
+    )
+  )
+
 ; ---
 
 (defprotocol Metric
   (set-metric [this metric-ns metric-id timestamp value])
   (read-metric [this metric-ns metric-id])
+  (list-metrics [this metric-ns])
   )
 
 (deftype Gauge []
@@ -118,6 +126,9 @@
     )
   (read-metric [this metric-ns metric-id]
     (generic-read-metric metric-ns metric-id gauges)
+    )
+  (list-metrics [this metric-ns]
+    (generic-list-metrics metric-ns gauges)
     )
   )
 
@@ -129,6 +140,9 @@
   (read-metric [this metric-ns metric-id]
     (generic-read-metric metric-ns metric-id counters)
     )
+  (list-metrics [this metric-ns]
+    (generic-list-metrics metric-ns counters)
+    )
   )
 
 (deftype Timer []
@@ -138,6 +152,9 @@
     )
   (read-metric [this metric-ns metric-id]
     (generic-read-metric metric-ns metric-id timers)
+    )
+  (list-metrics [this metric-ns]
+    (generic-list-metrics metric-ns timers)
     )
   )
 

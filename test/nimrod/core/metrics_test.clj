@@ -12,6 +12,10 @@
   (set-metric (metrics :gauges) gauge-ns gauge-id timestamp value)
   )
 
+(defn- list-gauges [gauge-ns]
+  (list-metrics (metrics :gauges) gauge-ns)
+  )
+
 (defn- gauges-in [gauge-ns]
   (vals (get @gauges gauge-ns))
   )
@@ -24,6 +28,10 @@
   (set-metric (metrics :counters) counter-ns counter-id timestamp value)
   )
 
+(defn- list-counters [counter-ns]
+  (list-metrics (metrics :counters) counter-ns)
+  )
+
 (defn- counters-in [counter-ns]
   (vals (get @counters counter-ns))
   )
@@ -34,6 +42,10 @@
 
 (defn- update-timer [timer-ns timer-id timestamp value]
   (set-metric (metrics :timers) timer-ns timer-id timestamp value)
+  )
+
+(defn- list-timers [timer-ns]
+  (list-metrics (metrics :timers) timer-ns)
   )
 
 (defn- timers-in [timer-ns]
@@ -57,6 +69,9 @@
     (is (not (nil? (read-gauge "ns1" "1"))))
     (is (= 2 ((read-gauge "ns1" "1") :timestamp)))
     (is (= "v2" ((read-gauge "ns1" "1") :value)))
+    )
+  (testing "List gauges"
+    (is (= ["1"] (list-gauges "ns1")))
     )
   )
 
@@ -85,6 +100,9 @@
     (is (= 2 ((read-counter "ns1" "1") :value-variance)))
     (is (= 2 ((read-counter "ns1" "1") :interval-average)))
     (is (= 0 ((read-counter "ns1" "1") :interval-variance)))
+    )
+  (testing "List counters"
+    (is (= ["1"] (list-counters "ns1")))
     )
   )
 
@@ -129,5 +147,8 @@
     (is (= 4 ((read-timer "ns1" "1") :elapsed-time)))
     (is (= 3 ((read-timer "ns1" "1") :elapsed-time-average)))
     (is (= 2 ((read-timer "ns1" "1") :elapsed-time-variance)))
+    )
+  (testing "List timers"
+    (is (= ["1"] (list-timers "ns1")))
     )
   )
