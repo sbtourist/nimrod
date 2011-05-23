@@ -15,10 +15,10 @@
     )
   )
 
-(defn process [line metrics]
+(defn process [log line metrics]
   (if-let [values (extract line)]
     (if-let [metric (metrics (values :metric))]
-      (metric (values :name) (values :timestamp) (values :value))
+      (metric log (values :name) (values :timestamp) (values :value))
       (log/warn (str "No metric with name: " (values :metric)))
       )
     )
