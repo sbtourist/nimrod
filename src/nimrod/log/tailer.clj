@@ -11,50 +11,44 @@
  )
 
 (defonce tailers (ref {}))
-(defonce tail-interval 10000)
+(defonce tailers-sequence (atom 0))
 
-(defn- create-tailer
-  ([log]
-    (create-tailer log tail-interval)
-    )
-  ([log interval]
-    (Tailer/create
-      (io/file log)
-      (proxy [TailerListenerAdapter] []
-        (fileNotFound [] (log/error (str "Log file not found: " log)))
-        (fileRotated [] (log/info (str "Rotated log file: " log)))
-        (handle [obj] (if (string? obj) (process obj metrics) (log/error (.getMessage obj) obj)))
-        )
-      interval
-      true
+(defn- create-tailer [id log interval metrics]
+  (Tailer/create
+    (io/file log)
+    (proxy [TailerListenerAdapter] []
+      (fileNotFound [] (log/error (str "Log file not found: " log)))
+      (fileRotated [] (log/info (str "Rotated log file: " log)))
+      (handle [obj] (if (string? obj) (process id obj metrics) (log/error (.getMessage obj) obj)))
       )
+    interval
+    true
     )
   )
 
-(defn start-tailer
-  ([log]
-    (start-tailer log tail-interval)
-    )
-  ([log interval]
-    (dosync
-      (if-let [tailer (get @tailers log)]
-        (throw (IllegalStateException. (str "Already processing log: " log)))
-        (let [tailer (new-agent (create-tailer log interval))]
-          (alter tailers assoc log tailer)
-          )
-        )
-      )
-    )
-  )
-
-(defn stop-tailer [log]
+(defn start-tailer [log interval metrics]
   (dosync
-    (if-let [tailer (get @tailers log)]
-      (do
-        (alter tailers dissoc log)
-        (send-off tailer #(.stop %1))
-        )
-      (throw (IllegalStateException. (str "No tailer for log: " log)))
+    (let [id (swap! tailers-sequence inc) tailer (new-agent (create-tailer id log interval metrics))]
+      (alter tailers assoc (Long/toString id) {:log log :tailer tailer})
+      id
       )
+    )
+  )
+
+(defn stop-tailer [id]
+  (dosync
+    (if-let [tailer (get @tailers id)]
+      (do
+        (alter tailers dissoc id)
+        (send-off (tailer :tailer) #(.stop %1))
+        )
+      (throw (IllegalStateException. (str "No tailer for id: " id)))
+      )
+    )
+  )
+
+(defn list-tailers []
+  (into {}
+    (for [tailer @tailers] [(tailer 0) ((tailer 1) :log)])
     )
   )
