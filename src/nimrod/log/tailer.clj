@@ -2,7 +2,6 @@
  (:use
    [clojure.contrib.io :as io]
    [clojure.contrib.logging :as log]
-   [nimrod.core.metrics]
    [nimrod.core.util]
    [nimrod.log.processor])
  (:import

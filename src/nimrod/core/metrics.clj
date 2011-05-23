@@ -11,26 +11,14 @@
 ; ---
 
 (defn- notify-gauge [gauge id timestamp value]
-  (send gauge #(if-let [state %1]
-                 (conj state {:timestamp (Long/parseLong timestamp) :value value})
-                 {:id id :timestamp (Long/parseLong timestamp) :value value}
-                 )
-    )
-  )
-
-(defn set-gauge [metric-ns metric-id timestamp value]
-  (dosync
-    (if-let [gauge (get (get @gauges metric-ns {}) metric-id)]
-      (notify-gauge gauge metric-id timestamp value)
-      (let [gauge (new-agent nil)]
-        (alter gauges assoc-in [metric-ns metric-id] gauge)
-        (notify-gauge gauge metric-id timestamp value)
-        )
+  (let [n_timestamp (Long/parseLong timestamp)]
+    (send gauge #(if-let [state %1]
+                   (conj state {:timestamp n_timestamp :value value})
+                   {:id id :timestamp n_timestamp :value value}
+                   )
       )
     )
   )
-
-; ---
 
 (defn- notify-counter [counter id timestamp value]
   (let [n_timestamp (Long/parseLong timestamp) n_value (Long/parseLong value)]
@@ -69,20 +57,6 @@
     )
   )
 
-(defn set-counter [metric-ns metric-id timestamp value]
-  (dosync
-    (if-let [counter (get (get @counters metric-ns {}) metric-id)]
-      (notify-counter counter metric-id timestamp value)
-      (let [counter (new-agent nil)]
-        (alter counters assoc-in [metric-ns metric-id] counter)
-        (notify-counter counter metric-id timestamp value)
-        )
-      )
-    )
-  )
-
-; ---
-
 (defn- notify-timer [timer id timestamp value]
   (let [n_timestamp (Long/parseLong timestamp) n_value (Long/parseLong value)]
     (send timer #(if-let [state %1]
@@ -109,22 +83,68 @@
     )
   )
 
-(defn set-timer [metric-ns metric-id timestamp value]
+; ---
+
+(defn- generic-set-metric [metric-ns metric-id metrics-collection metric-notification timestamp value]
   (dosync
-    (if-let [timer (get (get @timers metric-ns {}) metric-id)]
-      (notify-timer timer metric-id timestamp value)
-      (let [timer (new-agent nil)]
-        (alter timers assoc-in [metric-ns metric-id] timer)
-        (notify-timer timer metric-id timestamp value)
+    (if-let [metric ((get @metrics-collection metric-ns {}) metric-id)]
+      (metric-notification metric metric-id timestamp value)
+      (let [metric (new-agent nil)]
+        (alter metrics-collection assoc-in [metric-ns metric-id] metric)
+        (metric-notification metric metric-id timestamp value)
         )
       )
+    )
+  )
+
+(defn- generic-read-metric [metric-ns metric-id metrics-collection]
+  (if-let [metrics (@metrics-collection metric-ns)]
+    @(get metrics metric-id)
+    nil
+    )
+  )
+
+; ---
+
+(defprotocol Metric
+  (set-metric [this metric-ns metric-id timestamp value])
+  (read-metric [this metric-ns metric-id])
+  )
+
+(deftype Gauge []
+  Metric
+  (set-metric [this metric-ns metric-id timestamp value]
+    (generic-set-metric metric-ns metric-id gauges notify-gauge timestamp value)
+    )
+  (read-metric [this metric-ns metric-id]
+    (generic-read-metric metric-ns metric-id gauges)
+    )
+  )
+
+(deftype Counter []
+  Metric
+  (set-metric [this metric-ns metric-id timestamp value]
+    (generic-set-metric metric-ns metric-id counters notify-counter timestamp value)
+    )
+  (read-metric [this metric-ns metric-id]
+    (generic-read-metric metric-ns metric-id counters)
+    )
+  )
+
+(deftype Timer []
+  Metric
+  (set-metric [this metric-ns metric-id timestamp value]
+    (generic-set-metric metric-ns metric-id timers notify-timer timestamp value)
+    )
+  (read-metric [this metric-ns metric-id]
+    (generic-read-metric metric-ns metric-id timers)
     )
   )
 
 ; ---
 
 (defonce metrics {
-                  "gauge" set-gauge
-                  "counter" set-counter
-                  "timer" set-timer
+                  :gauges (Gauge.)
+                  :counters (Counter.)
+                  :timers (Timer.)
                   })

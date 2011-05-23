@@ -1,6 +1,7 @@
 (ns nimrod.log.processor
  (:use
-   [clojure.contrib.logging :as log])
+   [clojure.contrib.logging :as log]
+   [nimrod.core.metrics])
  (:refer-clojure :exclude [spit])
  )
 
@@ -16,10 +17,10 @@
   )
 
 (defn process [log line metrics]
-  (if-let [values (extract line)]
-    (if-let [metric (metrics (values :metric))]
-      (metric log (values :name) (values :timestamp) (values :value))
-      (log/warn (str "No metric with name: " (values :metric)))
+  (if-let [extracted (extract line)]
+    (if-let [metric (metrics (keyword (extracted :metric)))]
+      (set-metric metric log (extracted :name) (extracted :timestamp) (extracted :value))
+      (log/warn (str "No metric with name: " (extracted :metric)))
       )
     )
   )

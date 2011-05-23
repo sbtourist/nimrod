@@ -1,36 +1,45 @@
 (ns nimrod.log.processor-test
  (:use
    [clojure.test]
+   [nimrod.core.metrics]
    [nimrod.log.processor]
    )
  )
 
+(defonce test-metric (atom nil))
+(defonce test-metrics {
+                       :metric (reify Metric
+                                 (set-metric [this metric-ns metric-id timestamp value] 
+                                   (reset! test-metric {:log metric-ns :name metric-id :timestamp timestamp :value value})
+                                   )
+                                 (read-metric [this metric-ns metric-id]
+                                   @test-metric
+                                   )
+                                 )
+                       })
+
 (deftest process-log-line
   (testing "Process correct log line"
-    (let [processed (atom nil) metric-fn #(reset! processed {:log %1 :name %2 :timestamp %3 :value %4}) metrics {"metric" metric-fn}]
-      (process "log" "[nimrod][1][metric][name][value]" metrics)
-      (is (= "log" (@processed :log)))
-      (is (= "1" (@processed :timestamp)))
-      (is (= "name" (@processed :name)))
-      (is (= "value" (@processed :value)))
-      )
+    (process "log" "[nimrod][1][metric][name][value]" test-metrics)
+    (is (= "log" (@test-metric :log)))
+    (is (= "1" (@test-metric :timestamp)))
+    (is (= "name" (@test-metric :name)))
+    (is (= "value" (@test-metric :value)))
+    (reset! test-metric nil)
     )
   (testing "No log line processing due to missing prefix"
-    (let [processed (atom nil) metric-fn #(reset! processed "processed") metrics {"metric" metric-fn}]
-      (process "log" "[1][metric][name][value]" metrics)
-      (is (nil? @processed))
-      )
+    (process "log" "[1][metric][name][value]" test-metrics)
+    (is (nil? @test-metric))
+    (reset! test-metric nil)
     )
   (testing "No log line processing due to bad timestamp"
-    (let [processed (atom nil) metric-fn #(reset! processed "processed") metrics {"metric" metric-fn}]
-      (process "log" "[nimrod][bad timestamp][metric][name][value]" metrics)
-      (is (nil? @processed))
-      )
+    (process "log" "[nimrod][bad timestamp][metric][name][value]" test-metrics)
+    (is (nil? @test-metric))
+    (reset! test-metric nil)
     )
   (testing "No log line processing due to bad metric"
-    (let [processed (atom nil) metric-fn #(reset! processed "processed") metrics {"metric" metric-fn}]
-      (process "log" "[nimrod][1][bad metric][name][value]" metrics)
-      (is (nil? @processed))
-      )
+    (process "log" "[nimrod][1][bad metric][name][value]" test-metrics)
+    (is (nil? @test-metric))
+    (reset! test-metric nil)
     )
   )
