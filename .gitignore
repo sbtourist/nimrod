@@ -5,3 +5,4 @@ pom.xml
 .lein-deps-sum
 log.txt
 notes.txt
+*.orig
