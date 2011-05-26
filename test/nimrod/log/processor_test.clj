@@ -20,26 +20,34 @@
 
 (deftest process-log-line
   (testing "Process correct log line"
-    (process "log" "[nimrod][1][metric][name][value]" test-metrics)
-    (is (= "log" (@test-metric :log)))
-    (is (= "1" (@test-metric :timestamp)))
-    (is (= "name" (@test-metric :name)))
-    (is (= "value" (@test-metric :value)))
-    (reset! test-metric nil)
+    (binding [metric-types test-metrics]
+      (process "log" "[nimrod][1][metric][name][value]")
+      (is (= "log" (@test-metric :log)))
+      (is (= "1" (@test-metric :timestamp)))
+      (is (= "name" (@test-metric :name)))
+      (is (= "value" (@test-metric :value)))
+      (reset! test-metric nil)
+      )
     )
   (testing "No log line processing due to missing prefix"
-    (process "log" "[1][metric][name][value]" test-metrics)
-    (is (nil? @test-metric))
-    (reset! test-metric nil)
+    (binding [metric-types test-metrics]
+      (process "log" "[1][metric][name][value]")
+      (is (nil? @test-metric))
+      (reset! test-metric nil)
+      )
     )
   (testing "No log line processing due to bad timestamp"
-    (process "log" "[nimrod][bad timestamp][metric][name][value]" test-metrics)
-    (is (nil? @test-metric))
-    (reset! test-metric nil)
+    (binding [metric-types test-metrics]
+      (process "log" "[nimrod][bad timestamp][metric][name][value]")
+      (is (nil? @test-metric))
+      (reset! test-metric nil)
+      )
     )
   (testing "No log line processing due to bad metric"
-    (process "log" "[nimrod][1][bad metric][name][value]" test-metrics)
-    (is (nil? @test-metric))
-    (reset! test-metric nil)
+    (binding [metric-types test-metrics]
+      (process "log" "[nimrod][1][bad metric][name][value]")
+      (is (nil? @test-metric))
+      (reset! test-metric nil)
+      )
     )
   )

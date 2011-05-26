@@ -85,29 +85,32 @@
 
 ; ---
 
-(defn- generic-set-metric [metric-ns metric-id metrics-collection metric-notification timestamp value]
+(defn- generic-add-metric [metrics metric-ns metric-id]
   (dosync
-    (if-let [metric ((get @metrics-collection metric-ns {}) metric-id)]
-      (metric-notification metric metric-id timestamp value)
+    (if-let [metric ((get @metrics metric-ns {}) metric-id)]
+      metric
       (let [metric (new-agent nil)]
-        (alter metrics-collection assoc-in [metric-ns metric-id] metric)
-        (metric-notification metric metric-id timestamp value)
+        (alter metrics assoc-in [metric-ns metric-id] metric)
+        metric
         )
       )
     )
   )
 
-(defn- generic-read-metric [metric-ns metric-id metrics-collection]
-  (if-let [metrics (@metrics-collection metric-ns)]
-    @(get metrics metric-id)
+(defn- generic-read-metric [metrics metric-ns metric-id]
+  (if-let [metrics-in-ns (@metrics metric-ns)]
+    (if-let [metric (get metrics-in-ns metric-id)]
+      @metric
+      nil
+      )
     nil
     )
   )
 
-(defn- generic-list-metrics [metric-ns metrics-collection]
-  (if-let [metrics (@metrics-collection metric-ns)]
-    (into [] (keys metrics))
-    nil
+(defn- generic-list-metrics [metrics metric-ns]
+  (if-let [metrics-in-ns (@metrics metric-ns)]
+    (into [] (keys metrics-in-ns))
+    []
     )
   )
 
@@ -122,45 +125,51 @@
 (deftype Gauge []
   Metric
   (set-metric [this metric-ns metric-id timestamp value]
-    (generic-set-metric metric-ns metric-id gauges notify-gauge timestamp value)
+    (let [gauge (generic-add-metric gauges metric-ns metric-id)]
+      (notify-gauge gauge metric-id timestamp value)
+      )
     )
   (read-metric [this metric-ns metric-id]
-    (generic-read-metric metric-ns metric-id gauges)
+    (generic-read-metric gauges metric-ns metric-id)
     )
   (list-metrics [this metric-ns]
-    (generic-list-metrics metric-ns gauges)
+    (generic-list-metrics gauges metric-ns)
     )
   )
 
 (deftype Counter []
   Metric
   (set-metric [this metric-ns metric-id timestamp value]
-    (generic-set-metric metric-ns metric-id counters notify-counter timestamp value)
+    (let [counter (generic-add-metric counters metric-ns metric-id)]
+      (notify-counter counter metric-id timestamp value)
+      )
     )
   (read-metric [this metric-ns metric-id]
-    (generic-read-metric metric-ns metric-id counters)
+    (generic-read-metric counters metric-ns metric-id)
     )
   (list-metrics [this metric-ns]
-    (generic-list-metrics metric-ns counters)
+    (generic-list-metrics counters metric-ns)
     )
   )
 
 (deftype Timer []
   Metric
   (set-metric [this metric-ns metric-id timestamp value]
-    (generic-set-metric metric-ns metric-id timers notify-timer timestamp value)
+    (let [timer (generic-add-metric timers metric-ns metric-id)]
+      (notify-timer timer metric-id timestamp value)
+      )
     )
   (read-metric [this metric-ns metric-id]
-    (generic-read-metric metric-ns metric-id timers)
+    (generic-read-metric timers metric-ns metric-id)
     )
   (list-metrics [this metric-ns]
-    (generic-list-metrics metric-ns timers)
+    (generic-list-metrics timers metric-ns)
     )
   )
 
 ; ---
 
-(defonce metrics {
+(defonce metric-types {
                   :gauges (Gauge.)
                   :counters (Counter.)
                   :timers (Timer.)

@@ -12,22 +12,22 @@
 (defonce tailers (ref {}))
 (defonce tailers-sequence (atom 0))
 
-(defn- create-tailer [id log interval metrics]
+(defn- create-tailer [id log interval]
   (Tailer/create
     (io/file log)
     (proxy [TailerListenerAdapter] []
       (fileNotFound [] (log/error (str "Log file not found: " log)))
       (fileRotated [] (log/info (str "Rotated log file: " log)))
-      (handle [obj] (if (string? obj) (process id obj metrics) (log/error (.getMessage obj) obj)))
+      (handle [obj] (if (string? obj) (process id obj) (log/error (.getMessage obj) obj)))
       )
     interval
     true
     )
   )
 
-(defn start-tailer [log interval metrics]
+(defn start-tailer [log interval]
   (dosync
-    (let [id (Long/toString (swap! tailers-sequence inc)) tailer (new-agent (create-tailer id log interval metrics))]
+    (let [id (Long/toString (swap! tailers-sequence inc)) tailer (new-agent (create-tailer id log interval))]
       (alter tailers assoc id {:log log :tailer tailer})
       id
       )

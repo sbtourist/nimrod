@@ -16,9 +16,9 @@
     )
   )
 
-(defn process [log line metrics]
+(defn process [log line]
   (if-let [extracted (extract line)]
-    (if-let [metric (metrics (keyword (extracted :metric)))]
+    (if-let [metric (metric-types (keyword (extracted :metric)))]
       (set-metric metric log (extracted :name) (extracted :timestamp) (extracted :value))
       (log/warn (str "No metric with name: " (extracted :metric)))
       )

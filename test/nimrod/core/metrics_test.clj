@@ -5,15 +5,15 @@
  )
 
 (defn- read-gauge [gauge-ns gauge-id]
-  (read-metric (metrics :gauges) gauge-ns gauge-id)
+  (read-metric (metric-types :gauges) gauge-ns gauge-id)
   )
 
 (defn- update-gauge [gauge-ns gauge-id timestamp value]
-  (set-metric (metrics :gauges) gauge-ns gauge-id timestamp value)
+  (set-metric (metric-types :gauges) gauge-ns gauge-id timestamp value)
   )
 
 (defn- list-gauges [gauge-ns]
-  (list-metrics (metrics :gauges) gauge-ns)
+  (list-metrics (metric-types :gauges) gauge-ns)
   )
 
 (defn- gauges-in [gauge-ns]
@@ -21,15 +21,15 @@
   )
 
 (defn- read-counter [counter-ns counter-id]
-  (read-metric (metrics :counters) counter-ns counter-id)
+  (read-metric (metric-types :counters) counter-ns counter-id)
   )
 
 (defn- update-counter [counter-ns counter-id timestamp value]
-  (set-metric (metrics :counters) counter-ns counter-id timestamp value)
+  (set-metric (metric-types :counters) counter-ns counter-id timestamp value)
   )
 
 (defn- list-counters [counter-ns]
-  (list-metrics (metrics :counters) counter-ns)
+  (list-metrics (metric-types :counters) counter-ns)
   )
 
 (defn- counters-in [counter-ns]
@@ -37,15 +37,15 @@
   )
 
 (defn- read-timer [timer-ns timer-id]
-  (read-metric (metrics :timers) timer-ns timer-id)
+  (read-metric (metric-types :timers) timer-ns timer-id)
   )
 
 (defn- update-timer [timer-ns timer-id timestamp value]
-  (set-metric (metrics :timers) timer-ns timer-id timestamp value)
+  (set-metric (metric-types :timers) timer-ns timer-id timestamp value)
   )
 
 (defn- list-timers [timer-ns]
-  (list-metrics (metrics :timers) timer-ns)
+  (list-metrics (metric-types :timers) timer-ns)
   )
 
 (defn- timers-in [timer-ns]
