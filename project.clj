@@ -3,6 +3,8 @@
  :dependencies [
                 [org.clojure/clojure "1.2.1"]
                 [org.clojure/clojure-contrib "1.2.0"]
+                [compojure "0.6.3"]
+                [ring/ring-jetty-adapter "0.3.8"]
                 [commons-io/commons-io "2.0.1"]
                 ]
  ;jvm-opts ["-agentlib:jdwp=transport=dt_socket,address=9000,server=y,suspend=n"]
