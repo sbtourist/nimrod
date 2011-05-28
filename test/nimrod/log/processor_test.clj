@@ -8,12 +8,9 @@
 
 (defonce test-metric (atom nil))
 (defonce test-metrics {
-                       :metric (reify Metric
+                       :metric (reify MetricProtocol
                                  (set-metric [this metric-ns metric-id timestamp value] 
                                    (reset! test-metric {:log metric-ns :name metric-id :timestamp timestamp :value value})
-                                   )
-                                 (read-metric [this metric-ns metric-id]
-                                   @test-metric
                                    )
                                  )
                        })

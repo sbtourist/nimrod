@@ -62,6 +62,24 @@
       (response :error {:error (str "Bad metric type: " metric-id)})
       )
     )
+  (http/POST "/logs/:log-id/:metric-type/:metric-id/history" [log-id metric-type metric-id limit]
+    (if-let [metric (metric-types (keyword metric-type))]
+      (do 
+        (reset-history metric log-id metric-id (Long/parseLong limit))
+        (response :no-content)
+        )
+      (response :error {:error (str "Bad metric type: " metric-id)})
+      )
+    )
+  (http/GET "/logs/:log-id/:metric-type/:metric-id/history" [log-id metric-type metric-id]
+    (if-let [metric (metric-types (keyword metric-type))]
+      (if-let [result (read-history metric log-id metric-id)]
+        (response :ok result)
+        (response :not-found)
+        )
+      (response :error {:error (str "Bad metric type: " metric-id)})
+      )
+    )
   (route/not-found "")
   )
 

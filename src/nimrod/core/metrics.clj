@@ -10,33 +10,52 @@
 
 ; ---
 
-(defn- notify-gauge [gauge id timestamp value]
-  (let [n_timestamp (Long/parseLong timestamp)]
-    (send gauge #(if-let [state %1]
-                   (conj state {:timestamp n_timestamp :value value})
-                   {:id id :timestamp n_timestamp :value value}
-                   )
+(defn- init-history 
+  ([limit]
+    {:limit limit :size 0 :values (sorted-map)})
+  ([limit timestamp value]
+    {:limit limit :size 0 :values (sorted-map timestamp value)})
+  )
+
+(defn- update-history [history timestamp value]
+  (let [limit (history :limit) size (history :size) values (history :values)]
+    (if (= size limit)
+      (conj history {:values (assoc (dissoc values (first (keys values))) timestamp value)})
+      (conj history {:size (inc size) :values (assoc values timestamp value)})
       )
     )
   )
 
-(defn- notify-counter [counter id timestamp value]
-  (let [n_timestamp (Long/parseLong timestamp) n_value (Long/parseLong value)]
-    (send counter #(if-let [state %1]
-                     (let [previous-time (state :timestamp)
-                           previous-value (state :value)
-                           previous-interval-average (state :interval-average)
-                           previous-value-average (state :value-average)
-                           previous-interval-variance (state :interval-variance)
-                           previous-value-variance (state :value-variance)
-                           interval (- n_timestamp previous-time)
-                           samples (inc (state :samples))
+; ---
+
+(defn- compute-gauge [current id timestamp value]
+  (let [new-timestamp (Long/parseLong timestamp) new-value value]
+  (if (not (nil? current))
+    (conj current {:timestamp new-timestamp :value new-value})
+    {:id id :timestamp new-timestamp :value new-value}
+    )
+  )
+  )
+
+; ---
+
+(defn- compute-counter [current id timestamp value]
+  (let [new-timestamp (Long/parseLong timestamp) new-value (Long/parseLong value)]
+  (if (not (nil? current))
+                     (let [previous-time (current :timestamp)
+                           previous-value (current :value)
+                           previous-interval-average (current :interval-average)
+                           previous-value-average (current :value-average)
+                           previous-interval-variance (current :interval-variance)
+                           previous-value-variance (current :value-variance)
+                           interval (- new-timestamp previous-time)
+                           samples (inc (current :samples))
                            interval-average (average samples previous-interval-average interval)
-                           value-average (average samples previous-value-average n_value)
+                           value-average (average samples previous-value-average new-value)
                            interval-variance (variance samples previous-interval-variance previous-interval-average interval-average interval)
-                           value-variance (variance samples previous-value-variance previous-value-average value-average n_value)]
-                       (conj state {:timestamp n_timestamp
-                                    :value (+ previous-value n_value)
+                           value-variance (variance samples previous-value-variance previous-value-average value-average new-value)]
+                       (conj current {:timestamp new-timestamp
+                                    :value (+ previous-value new-value)
                                     :samples samples
                                     :interval-average interval-average
                                     :value-average value-average
@@ -45,47 +64,47 @@
                                     })
                        )
                      {:id id
-                      :timestamp n_timestamp
-                      :value n_value
+                      :timestamp new-timestamp
+                      :value new-value
                       :samples 1
-                      :interval-average n_timestamp
+                      :interval-average new-timestamp
                       :interval-variance 0
-                      :value-average n_value
+                      :value-average new-value
                       :value-variance 0}
                      )
-      )
-    )
   )
-
-(defn- notify-timer [timer id timestamp value]
-  (let [n_timestamp (Long/parseLong timestamp) n_value (Long/parseLong value)]
-    (send timer #(if-let [state %1]
-                   (if (= 0 (state :end))
-                     (let [previous-elapsed-time-average (state :elapsed-time-average)
-                           previous-elapsed-time-variance (state :elapsed-time-variance)
-                           start (state :start)
-                           samples (inc (state :samples))
-                           elapsed-time (- n_value start)
-                           elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
-                           elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
-                       (conj state {:timestamp n_timestamp
-                                    :end n_value
-                                    :elapsed-time elapsed-time
-                                    :elapsed-time-average elapsed-time-average
-                                    :elapsed-time-variance elapsed-time-variance
-                                    :samples samples})
-                       )
-                     (conj state {:timestamp n_timestamp :start n_value :end 0 :elapsed-time 0})
-                     )
-                   {:id id :timestamp n_timestamp :start n_value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
-                   )
-      )
-    )
   )
 
 ; ---
 
-(defn- generic-add-metric [metrics metric-ns metric-id]
+(defn- compute-timer [current id timestamp value]
+  (let [new-timestamp (Long/parseLong timestamp) new-value (Long/parseLong value)]
+  (if (not (nil? current))
+    (if (= 0 (current :end))
+      (let [previous-elapsed-time-average (current :elapsed-time-average)
+            previous-elapsed-time-variance (current :elapsed-time-variance)
+            start (current :start)
+            samples (inc (current :samples))
+            elapsed-time (- new-value start)
+            elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
+            elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
+        (conj current {:timestamp new-timestamp
+                       :end new-value
+                       :elapsed-time elapsed-time
+                       :elapsed-time-average elapsed-time-average
+                       :elapsed-time-variance elapsed-time-variance
+                       :samples samples})
+        )
+      (conj current {:timestamp new-timestamp :start new-value :end 0 :elapsed-time 0})
+      )
+    {:id id :timestamp new-timestamp :start new-value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
+    )
+  )
+  )
+
+; ---
+
+(defn- get-or-create-metric [metrics metric-ns metric-id]
   (dosync
     (if-let [metric ((get @metrics metric-ns {}) metric-id)]
       metric
@@ -97,80 +116,64 @@
     )
   )
 
-(defn- generic-read-metric [metrics metric-ns metric-id]
-  (if-let [metrics-in-ns (@metrics metric-ns)]
-    (if-let [metric (get metrics-in-ns metric-id)]
-      @metric
-      nil
-      )
-    nil
-    )
-  )
-
-(defn- generic-list-metrics [metrics metric-ns]
-  (if-let [metrics-in-ns (@metrics metric-ns)]
-    (into [] (keys metrics-in-ns))
-    []
-    )
-  )
-
 ; ---
 
-(defprotocol Metric
+(defprotocol MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value])
   (read-metric [this metric-ns metric-id])
   (list-metrics [this metric-ns])
+  (read-history [this metric-ns metric-id])
+  (reset-history [this metric-ns metric-id limit])
   )
 
-(deftype Gauge []
-  Metric
+(deftype Metric [metric-type compute-fn]
+  MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value]
-    (let [gauge (generic-add-metric gauges metric-ns metric-id)]
-      (notify-gauge gauge metric-id timestamp value)
+    (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
+      (send metric #(let [state (or %1 {:history (init-history 100) :value nil}) computed (compute-fn (state :value) metric-id timestamp value)]
+                      (conj state {:history (update-history (state :history) timestamp computed) :value computed})
+                      )
+        )
       )
     )
   (read-metric [this metric-ns metric-id]
-    (generic-read-metric gauges metric-ns metric-id)
-    )
-  (list-metrics [this metric-ns]
-    (generic-list-metrics gauges metric-ns)
-    )
-  )
-
-(deftype Counter []
-  Metric
-  (set-metric [this metric-ns metric-id timestamp value]
-    (let [counter (generic-add-metric counters metric-ns metric-id)]
-      (notify-counter counter metric-id timestamp value)
+    (if-let [metrics-in-ns (@metric-type metric-ns)]
+      (if-let [metric (metrics-in-ns metric-id)]
+        (@metric :value)
+        nil
+        )
+      nil
       )
     )
-  (read-metric [this metric-ns metric-id]
-    (generic-read-metric counters metric-ns metric-id)
-    )
   (list-metrics [this metric-ns]
-    (generic-list-metrics counters metric-ns)
-    )
-  )
-
-(deftype Timer []
-  Metric
-  (set-metric [this metric-ns metric-id timestamp value]
-    (let [timer (generic-add-metric timers metric-ns metric-id)]
-      (notify-timer timer metric-id timestamp value)
+    (if-let [metrics-in-ns (@metric-type metric-ns)]
+      (into [] (keys metrics-in-ns))
+      []
       )
     )
-  (read-metric [this metric-ns metric-id]
-    (generic-read-metric timers metric-ns metric-id)
+  (read-history [this metric-ns metric-id]
+    (if-let [metrics-in-ns (@metric-type metric-ns)]
+      (if-let [metric (metrics-in-ns metric-id)]
+        (@metric :history)
+        nil
+        )
+      nil
+      )
     )
-  (list-metrics [this metric-ns]
-    (generic-list-metrics timers metric-ns)
+  (reset-history [this metric-ns metric-id limit]
+    (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
+      (send metric #(let [state (or %1 {:history nil :value nil})]
+                      {:history (init-history limit) :value (state :value)}
+                      )
+        )
+      )
     )
   )
 
 ; ---
 
 (defonce metric-types {
-                  :gauges (Gauge.)
-                  :counters (Counter.)
-                  :timers (Timer.)
+                  :gauges (Metric. gauges compute-gauge)
+                  :counters (Metric. counters compute-counter)
+                  :timers (Metric. timers compute-timer)
                   })
