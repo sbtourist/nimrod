@@ -4,10 +4,6 @@
    [nimrod.core.util])
  )
 
-(defonce gauges (ref {}))
-(defonce counters (ref {}))
-(defonce timers (ref {}))
-
 ; ---
 
 (defn- init-history 
@@ -30,76 +26,76 @@
 
 (defn- compute-gauge [current id timestamp value]
   (let [new-timestamp (Long/parseLong timestamp) new-value value]
-  (if (not (nil? current))
-    (conj current {:timestamp new-timestamp :value new-value})
-    {:id id :timestamp new-timestamp :value new-value}
+    (if (not (nil? current))
+      (conj current {:timestamp new-timestamp :value new-value})
+      {:id id :timestamp new-timestamp :value new-value}
+      )
     )
-  )
   )
 
 ; ---
 
 (defn- compute-counter [current id timestamp value]
   (let [new-timestamp (Long/parseLong timestamp) new-value (Long/parseLong value)]
-  (if (not (nil? current))
-                     (let [previous-time (current :timestamp)
-                           previous-value (current :value)
-                           previous-interval-average (current :interval-average)
-                           previous-value-average (current :value-average)
-                           previous-interval-variance (current :interval-variance)
-                           previous-value-variance (current :value-variance)
-                           interval (- new-timestamp previous-time)
-                           samples (inc (current :samples))
-                           interval-average (average samples previous-interval-average interval)
-                           value-average (average samples previous-value-average new-value)
-                           interval-variance (variance samples previous-interval-variance previous-interval-average interval-average interval)
-                           value-variance (variance samples previous-value-variance previous-value-average value-average new-value)]
-                       (conj current {:timestamp new-timestamp
-                                    :value (+ previous-value new-value)
-                                    :samples samples
-                                    :interval-average interval-average
-                                    :value-average value-average
-                                    :interval-variance interval-variance
-                                    :value-variance value-variance
-                                    })
-                       )
-                     {:id id
-                      :timestamp new-timestamp
-                      :value new-value
-                      :samples 1
-                      :interval-average new-timestamp
-                      :interval-variance 0
-                      :value-average new-value
-                      :value-variance 0}
-                     )
-  )
+    (if (not (nil? current))
+      (let [previous-time (current :timestamp)
+            previous-value (current :value)
+            previous-interval-average (current :interval-average)
+            previous-value-average (current :value-average)
+            previous-interval-variance (current :interval-variance)
+            previous-value-variance (current :value-variance)
+            interval (- new-timestamp previous-time)
+            samples (inc (current :samples))
+            interval-average (average samples previous-interval-average interval)
+            value-average (average samples previous-value-average new-value)
+            interval-variance (variance samples previous-interval-variance previous-interval-average interval-average interval)
+            value-variance (variance samples previous-value-variance previous-value-average value-average new-value)]
+        (conj current {:timestamp new-timestamp
+                       :value (+ previous-value new-value)
+                       :samples samples
+                       :interval-average interval-average
+                       :value-average value-average
+                       :interval-variance interval-variance
+                       :value-variance value-variance
+                       })
+        )
+      {:id id
+       :timestamp new-timestamp
+       :value new-value
+       :samples 1
+       :interval-average new-timestamp
+       :interval-variance 0
+       :value-average new-value
+       :value-variance 0}
+      )
+    )
   )
 
 ; ---
 
 (defn- compute-timer [current id timestamp value]
   (let [new-timestamp (Long/parseLong timestamp) new-value (Long/parseLong value)]
-  (if (not (nil? current))
-    (if (= 0 (current :end))
-      (let [previous-elapsed-time-average (current :elapsed-time-average)
-            previous-elapsed-time-variance (current :elapsed-time-variance)
-            start (current :start)
-            samples (inc (current :samples))
-            elapsed-time (- new-value start)
-            elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
-            elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
-        (conj current {:timestamp new-timestamp
-                       :end new-value
-                       :elapsed-time elapsed-time
-                       :elapsed-time-average elapsed-time-average
-                       :elapsed-time-variance elapsed-time-variance
-                       :samples samples})
+    (if (not (nil? current))
+      (if (= 0 (current :end))
+        (let [previous-elapsed-time-average (current :elapsed-time-average)
+              previous-elapsed-time-variance (current :elapsed-time-variance)
+              start (current :start)
+              samples (inc (current :samples))
+              elapsed-time (- new-value start)
+              elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
+              elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
+          (conj current {:timestamp new-timestamp
+                         :end new-value
+                         :elapsed-time elapsed-time
+                         :elapsed-time-average elapsed-time-average
+                         :elapsed-time-variance elapsed-time-variance
+                         :samples samples})
+          )
+        (conj current {:timestamp new-timestamp :start new-value :end 0 :elapsed-time 0})
         )
-      (conj current {:timestamp new-timestamp :start new-value :end 0 :elapsed-time 0})
+      {:id id :timestamp new-timestamp :start new-value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
       )
-    {:id id :timestamp new-timestamp :start new-value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
     )
-  )
   )
 
 ; ---
@@ -122,6 +118,7 @@
   (set-metric [this metric-ns metric-id timestamp value])
   (read-metric [this metric-ns metric-id])
   (list-metrics [this metric-ns])
+  (flush-metrics [this metric-ns])
   (read-history [this metric-ns metric-id])
   (reset-history [this metric-ns metric-id limit])
   )
@@ -151,6 +148,12 @@
       []
       )
     )
+  (flush-metrics [this metric-ns]
+    (if-let [metrics-in-ns (@metric-type metric-ns)]
+      (apply await (vals metrics-in-ns))
+      []
+      )
+    )
   (read-history [this metric-ns metric-id]
     (if-let [metrics-in-ns (@metric-type metric-ns)]
       (if-let [metric (metrics-in-ns metric-id)]
@@ -173,7 +176,7 @@
 ; ---
 
 (defonce metric-types {
-                  :gauges (Metric. gauges compute-gauge)
-                  :counters (Metric. counters compute-counter)
-                  :timers (Metric. timers compute-timer)
-                  })
+                       :gauges (Metric. (ref {}) compute-gauge)
+                       :counters (Metric. (ref {}) compute-counter)
+                       :timers (Metric. (ref {}) compute-timer)
+                       })

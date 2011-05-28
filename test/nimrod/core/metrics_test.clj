@@ -24,8 +24,8 @@
   (reset-history (metric-types :gauges) gauge-ns gauge-id limit)
   )
 
-(defn- gauges-in [gauge-ns]
-  (vals (get @gauges gauge-ns))
+(defn- flush-gauges-in [gauge-ns]
+  (flush-metrics (metric-types :gauges) gauge-ns)
   )
 
 (defn- read-counter [counter-ns counter-id]
@@ -48,8 +48,8 @@
   (reset-history (metric-types :counters) counter-ns counter-id limit)
   )
 
-(defn- counters-in [counter-ns]
-  (vals (get @counters counter-ns))
+(defn- flush-counters-in [counter-ns]
+  (flush-metrics (metric-types :counters) counter-ns)
   )
 
 (defn- read-timer [timer-ns timer-id]
@@ -72,8 +72,8 @@
   (reset-history (metric-types :timers) timer-ns timer-id limit)
   )
 
-(defn- timers-in [timer-ns]
-  (vals (get @timers timer-ns))
+(defn- flush-timers-in [timer-ns]
+  (flush-metrics (metric-types :timers) timer-ns)
   )
 
 (deftest gauge-metrics
@@ -82,14 +82,14 @@
     )
   (testing "Initial gauge value"
     (update-gauge "gauge-metrics" "1" "1" "v1")
-    (apply await (gauges-in "gauge-metrics"))
+    (flush-gauges-in "gauge-metrics")
     (is (not (nil? (read-gauge "gauge-metrics" "1"))))
     (is (= 1 ((read-gauge "gauge-metrics" "1") :timestamp)))
     (is (= "v1" ((read-gauge "gauge-metrics" "1") :value)))
     )
   (testing "Updated gauge value"
     (update-gauge "gauge-metrics" "1" "2" "v2")
-    (apply await (gauges-in "gauge-metrics"))
+    (flush-gauges-in "gauge-metrics")
     (is (not (nil? (read-gauge "gauge-metrics" "1"))))
     (is (= 2 ((read-gauge "gauge-metrics" "1") :timestamp)))
     (is (= "v2" ((read-gauge "gauge-metrics" "1") :value)))
@@ -106,13 +106,13 @@
   (testing "Gauge history under limit"
     (update-gauge "gauge-history" "1" "1" "v1")
     (update-gauge "gauge-history" "1" "2" "v2")
-    (apply await (gauges-in "gauge-history"))
+    (flush-gauges-in "gauge-history")
     (is (= "1" ((first (read-gauge-history "gauge-history" "1")) 0)))
     (is (= "2" ((second (read-gauge-history "gauge-history" "1")) 0)))
     )
   (testing "Gauge history over limit"
     (update-gauge "gauge-history" "1" "3" "v3")
-    (apply await (gauges-in "gauge-history"))
+    (flush-gauges-in "gauge-history")
     (is (= "2" ((first (read-gauge-history "gauge-history" "1")) 0)))
     (is (= "3" ((second (read-gauge-history "gauge-history" "1")) 0)))
     )
@@ -124,7 +124,7 @@
     )
   (testing "Initial counter values"
     (update-counter "counter-metrics" "1" "2" "4")
-    (apply await (counters-in "counter-metrics"))
+    (flush-counters-in "counter-metrics")
     (is (not (nil? (read-counter "counter-metrics" "1"))))
     (is (= 2 ((read-counter "counter-metrics" "1") :timestamp)))
     (is (= 4 ((read-counter "counter-metrics" "1") :value)))
@@ -135,7 +135,7 @@
     )
   (testing "Updated counter values"
     (update-counter "counter-metrics" "1" "4" "6")
-    (apply await (counters-in "counter-metrics"))
+    (flush-counters-in "counter-metrics")
     (is (not (nil? (read-counter "counter-metrics" "1"))))
     (is (= 4 ((read-counter "counter-metrics" "1") :timestamp)))
     (is (= 10 ((read-counter "counter-metrics" "1") :value)))
@@ -156,13 +156,13 @@
   (testing "Counter history under limit"
     (update-counter "counter-history" "1" "1" "1")
     (update-counter "counter-history" "1" "2" "2")
-    (apply await (counters-in "counter-history"))
+    (flush-counters-in "counter-history")
     (is (= "1" ((first (read-counter-history "counter-history" "1")) 0)))
     (is (= "2" ((second (read-counter-history "counter-history" "1")) 0)))
     )
   (testing "Counter history over limit"
     (update-counter "counter-history" "1" "3" "3")
-    (apply await (counters-in "counter-history"))
+    (flush-counters-in "counter-history")
     (is (= "2" ((first (read-counter-history "counter-history" "1")) 0)))
     (is (= "3" ((second (read-counter-history "counter-history" "1")) 0)))
     )
@@ -174,7 +174,7 @@
     )
   (testing "Start timer"
     (update-timer "timer-metrics" "1" "2" "2")
-    (apply await (timers-in "timer-metrics"))
+    (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 2 ((read-timer "timer-metrics" "1") :start)))
     (is (= 0 ((read-timer "timer-metrics" "1") :end)))
@@ -184,7 +184,7 @@
     )
   (testing "Stop timer"
     (update-timer "timer-metrics" "1" "4" "4")
-    (apply await (timers-in "timer-metrics"))
+    (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 2 ((read-timer "timer-metrics" "1") :start)))
     (is (= 4 ((read-timer "timer-metrics" "1") :end)))
@@ -194,7 +194,7 @@
     )
   (testing "Restart timer"
     (update-timer "timer-metrics" "1" "6" "6")
-    (apply await (timers-in "timer-metrics"))
+    (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 6 ((read-timer "timer-metrics" "1") :start)))
     (is (= 0 ((read-timer "timer-metrics" "1") :end)))
@@ -202,7 +202,7 @@
     (is (= 2 ((read-timer "timer-metrics" "1") :elapsed-time-average)))
     (is (= 0 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
     (update-timer "timer-metrics" "1" "10" "10")
-    (apply await (timers-in "timer-metrics"))
+    (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 6 ((read-timer "timer-metrics" "1") :start)))
     (is (= 10 ((read-timer "timer-metrics" "1") :end)))
@@ -222,13 +222,13 @@
   (testing "Timer history under limit"
     (update-timer "timer-history" "1" "1" "1")
     (update-timer "timer-history" "1" "2" "2")
-    (apply await (timers-in "timer-history"))
+    (flush-timers-in "timer-history")
     (is (= "1" ((first (read-timer-history "timer-history" "1")) 0)))
     (is (= "2" ((second (read-timer-history "timer-history" "1")) 0)))
     )
   (testing "Timer history over limit"
     (update-timer "timer-history" "1" "3" "3")
-    (apply await (timers-in "timer-history"))
+    (flush-timers-in "timer-history")
     (is (= "2" ((first (read-timer-history "timer-history" "1")) 0)))
     (is (= "3" ((second (read-timer-history "timer-history" "1")) 0)))
     )
