@@ -1,6 +1,7 @@
 # Nimrod
 
-Nimrod is a simple metrics server purely based on log processing: hence, it doesn't affect the way you write your applications, nor it has any side effect on them.
+Nimrod is a simple metrics server, inspired by the excellent [Coda Hale's Metrics library](https://github.com/codahale/metrics/), but purely based on log processing:
+hence, it doesn't affect the way you write your applications, nor it has any side effect on them.
 In other words, for those of you who love the bullet points:
 
 * You don't have to import any libraries: just print some logs in a way that Nimrod is able to process.
