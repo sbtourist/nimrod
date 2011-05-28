@@ -20,7 +20,7 @@ It currently provides the following features:
 
 ## Get and Build
 
-Nimrod doesn't currently come in binary form, so you have to checkout the git repository and build it with the wonderful [Leiningen](http://github.com/technomancy/leiningen).
+Nimrod is written in Clojure and doesn't currently come in binary form, so you have to checkout the git repository and build it with the wonderful [Leiningen](http://github.com/technomancy/leiningen).
 It is as easy as:
 
     $> lein uberjar
