@@ -6,3 +6,4 @@ pom.xml
 log.txt
 notes.txt
 *.orig
+test.sh
