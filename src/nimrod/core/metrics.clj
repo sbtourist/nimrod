@@ -46,9 +46,9 @@
             previous-value-variance (current :value-variance)
             interval (- new-timestamp previous-time)
             samples (inc (current :samples))
-            interval-average (average samples previous-interval-average interval)
+            interval-average (average (dec samples) previous-interval-average interval)
             value-average (average samples previous-value-average new-value)
-            interval-variance (variance samples previous-interval-variance previous-interval-average interval-average interval)
+            interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
             value-variance (variance samples previous-value-variance previous-value-average value-average new-value)]
         (conj current {:timestamp new-timestamp
                        :value (+ previous-value new-value)
@@ -63,7 +63,7 @@
        :timestamp new-timestamp
        :value new-value
        :samples 1
-       :interval-average new-timestamp
+       :interval-average 0
        :interval-variance 0
        :value-average new-value
        :value-variance 0}

@@ -130,7 +130,7 @@
     (is (= 4 ((read-counter "counter-metrics" "1") :value)))
     (is (= 4 ((read-counter "counter-metrics" "1") :value-average)))
     (is (= 0 ((read-counter "counter-metrics" "1") :value-variance)))
-    (is (= 2 ((read-counter "counter-metrics" "1") :interval-average)))
+    (is (= 0 ((read-counter "counter-metrics" "1") :interval-average)))
     (is (= 0 ((read-counter "counter-metrics" "1") :interval-variance)))
     )
   (testing "Updated counter values"

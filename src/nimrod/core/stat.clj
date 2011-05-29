@@ -3,7 +3,10 @@
  )
 
 (defn average [samples previous-average value]
-  (+ previous-average (/ (- value previous-average) samples))
+  (if (not (= 0 samples))
+    (+ previous-average (/ (- value previous-average) samples))
+    0
+    )
   )
 
 (defn variance [samples previous-variance previous-average current-average value]
