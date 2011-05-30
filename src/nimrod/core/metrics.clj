@@ -39,7 +39,7 @@
   (let [new-time (Long/parseLong timestamp) increment (Long/parseLong value)]
     (if (not (nil? current))
       (let [previous-time (current :timestamp)
-            previous-value (current :value)
+            previous-counter (current :counter)
             previous-interval-average (current :interval-average)
             previous-interval-variance (current :interval-variance)
             previous-increment-average (current :increment-average)
@@ -51,22 +51,26 @@
             increment-average (average samples previous-increment-average increment)
             increment-variance (variance samples previous-increment-variance previous-increment-average increment-average increment)]
         (conj current {:timestamp new-time
-                       :value (+ previous-value increment)
+                       :counter (+ previous-counter increment)
                        :samples samples
                        :interval-average interval-average
                        :interval-variance interval-variance
+                       :latest-interval interval
                        :increment-average increment-average
                        :increment-variance increment-variance
+                       :latest-increment increment
                        })
         )
       {:id id
        :timestamp new-time
-       :value increment
+       :counter increment
        :samples 1
        :interval-average 0
        :interval-variance 0
+       :latest-interval 0
        :increment-average increment
-       :increment-variance 0}
+       :increment-variance 0
+       :latest-increment increment}
       )
     )
   )
