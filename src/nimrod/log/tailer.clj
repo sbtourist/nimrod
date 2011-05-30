@@ -28,6 +28,7 @@
 (defn start-tailer [log interval]
   (dosync
     (let [id (Long/toString (swap! tailers-sequence inc)) tailer (new-agent (create-tailer id log interval))]
+      (log/info (str "Start listening to log: " log))
       (alter tailers assoc id {:log log :tailer tailer})
       id
       )
