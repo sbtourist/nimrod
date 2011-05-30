@@ -12,4 +12,4 @@
 
 (defn unrationalize [n] (if (ratio? n) (float n) n))
 
-(defn unrationalize-all [m] (reduce conj {} (map #(into [] [%1 (unrationalize %2)]) (keys m) (vals m))))
+(defn display [m] (reduce conj {} (map #(into [] [%1 (unrationalize %2)]) (keys m) (vals m))))

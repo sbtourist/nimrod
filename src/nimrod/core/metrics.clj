@@ -129,8 +129,8 @@
     (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
       (send metric #(let [state (or %1 {:history (init-history 100) :computation nil :value nil})
                           computed (compute-fn (state :computation) metric-id timestamp value)
-                          unrationalized (unrationalize-all computed)]
-                      (conj state {:history (update-history (state :history) timestamp unrationalized) :computation computed :value unrationalized})
+                          displayed (display computed)]
+                      (conj state {:history (update-history (state :history) timestamp displayed) :computation computed :value displayed})
                       )
         )
       )
