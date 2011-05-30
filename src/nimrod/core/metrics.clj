@@ -25,10 +25,10 @@
 ; ---
 
 (defn- compute-gauge [current id timestamp value]
-  (let [new-timestamp (Long/parseLong timestamp) new-value value]
+  (let [new-time (Long/parseLong timestamp) new-value value]
     (if (not (nil? current))
-      (conj current {:timestamp new-timestamp :value new-value})
-      {:id id :timestamp new-timestamp :value new-value}
+      (conj current {:timestamp new-time :value new-value})
+      {:id id :timestamp new-time :value new-value}
       )
     )
   )
@@ -36,37 +36,37 @@
 ; ---
 
 (defn- compute-counter [current id timestamp value]
-  (let [new-timestamp (Long/parseLong timestamp) new-value (Long/parseLong value)]
+  (let [new-time (Long/parseLong timestamp) increment (Long/parseLong value)]
     (if (not (nil? current))
       (let [previous-time (current :timestamp)
             previous-value (current :value)
             previous-interval-average (current :interval-average)
-            previous-value-average (current :value-average)
             previous-interval-variance (current :interval-variance)
-            previous-value-variance (current :value-variance)
-            interval (- new-timestamp previous-time)
+            previous-increment-average (current :increment-average)
+            previous-increment-variance (current :increment-variance)
+            interval (- new-time previous-time)
             samples (inc (current :samples))
             interval-average (average (dec samples) previous-interval-average interval)
-            value-average (average samples previous-value-average new-value)
             interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
-            value-variance (variance samples previous-value-variance previous-value-average value-average new-value)]
-        (conj current {:timestamp new-timestamp
-                       :value (+ previous-value new-value)
+            increment-average (average samples previous-increment-average increment)
+            increment-variance (variance samples previous-increment-variance previous-increment-average increment-average increment)]
+        (conj current {:timestamp new-time
+                       :value (+ previous-value increment)
                        :samples samples
                        :interval-average interval-average
-                       :value-average value-average
                        :interval-variance interval-variance
-                       :value-variance value-variance
+                       :increment-average increment-average
+                       :increment-variance increment-variance
                        })
         )
       {:id id
-       :timestamp new-timestamp
-       :value new-value
+       :timestamp new-time
+       :value increment
        :samples 1
        :interval-average 0
        :interval-variance 0
-       :value-average new-value
-       :value-variance 0}
+       :increment-average increment
+       :increment-variance 0}
       )
     )
   )
@@ -74,26 +74,26 @@
 ; ---
 
 (defn- compute-timer [current id timestamp value]
-  (let [new-timestamp (Long/parseLong timestamp) new-value (Long/parseLong value)]
+  (let [new-time (Long/parseLong timestamp) timer (Long/parseLong value)]
     (if (not (nil? current))
       (if (= 0 (current :end))
         (let [previous-elapsed-time-average (current :elapsed-time-average)
               previous-elapsed-time-variance (current :elapsed-time-variance)
               start (current :start)
               samples (inc (current :samples))
-              elapsed-time (- new-value start)
+              elapsed-time (- timer start)
               elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
               elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
-          (conj current {:timestamp new-timestamp
-                         :end new-value
+          (conj current {:timestamp new-time
+                         :end timer
                          :elapsed-time elapsed-time
                          :elapsed-time-average elapsed-time-average
                          :elapsed-time-variance elapsed-time-variance
                          :samples samples})
           )
-        (conj current {:timestamp new-timestamp :start new-value :end 0 :elapsed-time 0})
+        (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0})
         )
-      {:id id :timestamp new-timestamp :start new-value :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
+      {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
       )
     )
   )
