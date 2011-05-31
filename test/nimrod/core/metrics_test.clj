@@ -28,6 +28,30 @@
   (flush-metrics (metric-types :gauges) gauge-ns)
   )
 
+(defn- read-measure [measure-ns measure-id]
+  (read-metric (metric-types :measures) measure-ns measure-id)
+  )
+
+(defn- update-measure [measure-ns measure-id timestamp value]
+  (set-metric (metric-types :measures) measure-ns measure-id timestamp value)
+  )
+
+(defn- list-measures [measure-ns]
+  (list-metrics (metric-types :measures) measure-ns)
+  )
+
+(defn- read-measure-history [measure-ns measure-id]
+  ((read-history (metric-types :measures) measure-ns measure-id) :values)
+  )
+
+(defn- reset-measure-history [measure-ns measure-id limit]
+  (reset-history (metric-types :measures) measure-ns measure-id limit)
+  )
+
+(defn- flush-measures-in [measure-ns]
+  (flush-metrics (metric-types :measures) measure-ns)
+  )
+
 (defn- read-counter [counter-ns counter-id]
   (read-metric (metric-types :counters) counter-ns counter-id)
   )
@@ -115,6 +139,56 @@
     (flush-gauges-in "gauge-history")
     (is (= "2" ((first (read-gauge-history "gauge-history" "1")) 0)))
     (is (= "3" ((second (read-gauge-history "gauge-history" "1")) 0)))
+    )
+  )
+
+(deftest measure-metrics
+  (testing "Null measure"
+    (is (nil? (read-measure "measure-metrics" "1")))
+    )
+  (testing "Initial measure values"
+    (update-measure "measure-metrics" "1" "2" "4")
+    (flush-measures-in "measure-metrics")
+    (is (not (nil? (read-measure "measure-metrics" "1"))))
+    (is (= 2 ((read-measure "measure-metrics" "1") :timestamp)))
+    (is (= 4 ((read-measure "measure-metrics" "1") :measure)))
+    (is (= 4 ((read-measure "measure-metrics" "1") :measure-average)))
+    (is (= 0 ((read-measure "measure-metrics" "1") :measure-variance)))
+    (is (= 0 ((read-measure "measure-metrics" "1") :interval-average)))
+    (is (= 0 ((read-measure "measure-metrics" "1") :interval-variance)))
+    )
+  (testing "Updated measure values"
+    (update-measure "measure-metrics" "1" "4" "6")
+    (flush-measures-in "measure-metrics")
+    (is (not (nil? (read-measure "measure-metrics" "1"))))
+    (is (= 4 ((read-measure "measure-metrics" "1") :timestamp)))
+    (is (= 6 ((read-measure "measure-metrics" "1") :measure)))
+    (is (= 5 ((read-measure "measure-metrics" "1") :measure-average)))
+    (is (= 2 ((read-measure "measure-metrics" "1") :measure-variance)))
+    (is (= 2 ((read-measure "measure-metrics" "1") :interval-average)))
+    (is (= 0 ((read-measure "measure-metrics" "1") :interval-variance)))
+    )
+  (testing "List measures"
+    (is (= ["1"] (list-measures "measure-metrics")))
+    )
+  )
+
+(deftest measure-history
+  (testing "Reset measure history"
+    (reset-measure-history "measure-history" "1" 2)
+    )
+  (testing "Measure history under limit"
+    (update-measure "measure-history" "1" "1" "1")
+    (update-measure "measure-history" "1" "2" "2")
+    (flush-measures-in "measure-history")
+    (is (= "1" ((first (read-measure-history "measure-history" "1")) 0)))
+    (is (= "2" ((second (read-measure-history "measure-history" "1")) 0)))
+    )
+  (testing "Measure history over limit"
+    (update-measure "measure-history" "1" "3" "3")
+    (flush-measures-in "measure-history")
+    (is (= "2" ((first (read-measure-history "measure-history" "1")) 0)))
+    (is (= "3" ((second (read-measure-history "measure-history" "1")) 0)))
     )
   )
 

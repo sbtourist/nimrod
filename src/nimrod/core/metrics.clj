@@ -35,6 +35,43 @@
 
 ; ---
 
+(defn- compute-measure [current id timestamp value]
+  (let [new-time (Long/parseLong timestamp) measure (Long/parseLong value)]
+    (if (not (nil? current))
+      (let [previous-time (current :timestamp)
+            previous-interval-average (current :interval-average)
+            previous-interval-variance (current :interval-variance)
+            previous-measure-average (current :measure-average)
+            previous-measure-variance (current :measure-variance)
+            interval (- new-time previous-time)
+            samples (inc (current :samples))
+            interval-average (average (dec samples) previous-interval-average interval)
+            interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
+            measure-average (average samples previous-measure-average measure)
+            measure-variance (variance samples previous-measure-variance previous-measure-average measure-average measure)]
+        (conj current {:timestamp new-time
+                       :measure measure
+                       :samples samples
+                       :interval-average interval-average
+                       :interval-variance interval-variance
+                       :measure-average measure-average
+                       :measure-variance measure-variance
+                       })
+        )
+      {:id id
+       :timestamp new-time
+       :measure measure
+       :samples 1
+       :interval-average 0
+       :interval-variance 0
+       :measure-average measure
+       :measure-variance 0}
+      )
+    )
+  )
+
+; ---
+
 (defn- compute-counter [current id timestamp value]
   (let [new-time (Long/parseLong timestamp) increment (Long/parseLong value)]
     (if (not (nil? current))
@@ -183,6 +220,7 @@
 
 (defonce metric-types {
                        :gauges (Metric. (ref {}) compute-gauge)
+                       :measures (Metric. (ref {}) compute-measure)
                        :counters (Metric. (ref {}) compute-counter)
                        :timers (Metric. (ref {}) compute-timer)
                        })

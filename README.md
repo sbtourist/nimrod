@@ -50,6 +50,7 @@ Then, start logging your metrics in the Nimrod-specific format, providing the fo
 * The metric timestamp (in milliseconds).
 * The metric type, among one of:
  * "gauges"
+ * "measures"
  * "counters"
  * "timers"
 * The metric identifier for the specified type.
@@ -84,15 +85,30 @@ Metric history and its depth can be reset as follows:
 
 ## Gauges
 
-*TODO*
+String values representing a generic indicator at a given time.
+
+## Measures
+
+Number values representing a fixed measure at a given time.
+It also provides the following statistical information:
+
+* Average and variance of time intervals between measure updates.
+* Average and variance of the measure.
 
 ## Counters
 
-*TODO*
+Number values representing an incrementing measure over time.
+It also provides the following statistical information:
+
+* Average and variance of time intervals between counter updates.
+* Average and variance of the counter increment.
 
 ## Timers
 
-*TODO*
+Number values representing the elapsed time between start and end of a given event, cyclically computed at each invocation.
+It also provides the following statistical information:
+
+* Average and variance of the elapsed time.
 
 ## License
 
