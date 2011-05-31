@@ -10,14 +10,18 @@
   ([limit]
     {:limit limit :size 0 :values (sorted-map)})
   ([limit timestamp value]
-    {:limit limit :size 0 :values (sorted-map timestamp value)})
+    {:limit limit :size 1 :values (sorted-map timestamp value)})
   )
 
 (defn- update-history [history timestamp value]
-  (let [limit (history :limit) size (history :size) values (history :values)]
+  (let [limit (history :limit) values (history :values) size (count values)]
     (if (= size limit)
-      (conj history {:values (assoc (dissoc values (first (keys values))) timestamp value)})
-      (conj history {:size (inc size) :values (assoc values timestamp value)})
+      (let [new-values (assoc (dissoc values (first (keys values))) timestamp value)]
+        (assoc history :values new-values :size (count new-values))
+        )
+      (let [new-values (assoc values timestamp value)]
+        (assoc history :values new-values :size (count new-values))
+        )
       )
     )
   )
