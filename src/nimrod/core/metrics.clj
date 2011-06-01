@@ -1,5 +1,6 @@
 (ns nimrod.core.metrics
- (:use 
+ (:use
+   [clojure.set :as cset]
    [nimrod.core.stat]
    [nimrod.core.util])
  )
@@ -28,18 +29,18 @@
 
 ; ---
 
-(defn- compute-gauge [current id timestamp value]
+(defn- compute-gauge [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) new-value value]
     (if (not (nil? current))
-      (conj current {:timestamp new-time :value new-value})
-      {:id id :timestamp new-time :value new-value}
+      (conj current {:timestamp new-time :value new-value :tags tags})
+      {:id id :timestamp new-time :value new-value :tags tags}
       )
     )
   )
 
 ; ---
 
-(defn- compute-measure [current id timestamp value]
+(defn- compute-measure [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) measure (Long/parseLong value)]
     (if (not (nil? current))
       (let [previous-time (current :timestamp)
@@ -60,6 +61,7 @@
                        :interval-variance interval-variance
                        :measure-average measure-average
                        :measure-variance measure-variance
+                       :tags tags
                        })
         )
       {:id id
@@ -69,14 +71,15 @@
        :interval-average 0
        :interval-variance 0
        :measure-average measure
-       :measure-variance 0}
+       :measure-variance 0
+       :tags tags}
       )
     )
   )
 
 ; ---
 
-(defn- compute-counter [current id timestamp value]
+(defn- compute-counter [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) increment (Long/parseLong value)]
     (if (not (nil? current))
       (let [previous-time (current :timestamp)
@@ -100,6 +103,7 @@
                        :increment-average increment-average
                        :increment-variance increment-variance
                        :latest-increment increment
+                       :tags tags
                        })
         )
       {:id id
@@ -111,14 +115,15 @@
        :latest-interval 0
        :increment-average increment
        :increment-variance 0
-       :latest-increment increment}
+       :latest-increment increment
+       :tags tags}
       )
     )
   )
 
 ; ---
 
-(defn- compute-timer [current id timestamp value]
+(defn- compute-timer [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) timer (Long/parseLong value)]
     (if (not (nil? current))
       (if (= 0 (current :end))
@@ -134,11 +139,12 @@
                          :elapsed-time elapsed-time
                          :elapsed-time-average elapsed-time-average
                          :elapsed-time-variance elapsed-time-variance
-                         :samples samples})
+                         :samples samples
+                         :tags tags})
           )
-        (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0})
+        (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
         )
-      {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0}
+      {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
       )
     )
   )
@@ -160,20 +166,20 @@
 ; ---
 
 (defprotocol MetricProtocol
-  (set-metric [this metric-ns metric-id timestamp value])
+  (set-metric [this metric-ns metric-id timestamp value tags])
   (read-metric [this metric-ns metric-id])
   (list-metrics [this metric-ns])
   (flush-metrics [this metric-ns])
-  (read-history [this metric-ns metric-id])
+  (read-history [this metric-ns metric-id tags])
   (reset-history [this metric-ns metric-id limit])
   )
 
 (deftype Metric [metric-type compute-fn]
   MetricProtocol
-  (set-metric [this metric-ns metric-id timestamp value]
+  (set-metric [this metric-ns metric-id timestamp value tags]
     (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
       (send metric #(let [state (or %1 {:history (init-history 100) :computation nil :value nil})
-                          computed (compute-fn (state :computation) metric-id timestamp value)
+                          computed (compute-fn (state :computation) metric-id timestamp value tags)
                           displayed (display computed)]
                       (conj state {:history (update-history (state :history) timestamp displayed) :computation computed :value displayed})
                       )
@@ -201,10 +207,15 @@
       []
       )
     )
-  (read-history [this metric-ns metric-id]
+  (read-history [this metric-ns metric-id tags]
     (if-let [metrics-in-ns (@metric-type metric-ns)]
       (if-let [metric (metrics-in-ns metric-id)]
-        (@metric :history)
+        (if (seq tags)
+          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags ((second %1) :tags)) (history :values))]
+            (assoc history :size (count filtered-values) :values (into {} filtered-values))
+            )
+          (@metric :history)
+          )
         nil
         )
       nil

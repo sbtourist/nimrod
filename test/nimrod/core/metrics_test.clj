@@ -8,16 +8,24 @@
   (read-metric (metric-types :gauges) gauge-ns gauge-id)
   )
 
-(defn- update-gauge [gauge-ns gauge-id timestamp value]
-  (set-metric (metric-types :gauges) gauge-ns gauge-id timestamp value)
+(defn- update-gauge
+  ([gauge-ns gauge-id timestamp value]
+    (set-metric (metric-types :gauges) gauge-ns gauge-id timestamp value #{}))
+  ([gauge-ns gauge-id timestamp value tags]
+    (set-metric (metric-types :gauges) gauge-ns gauge-id timestamp value tags))
   )
 
 (defn- list-gauges [gauge-ns]
   (list-metrics (metric-types :gauges) gauge-ns)
   )
 
-(defn- read-gauge-history [gauge-ns gauge-id]
-  ((read-history (metric-types :gauges) gauge-ns gauge-id) :values)
+(defn- read-gauge-history
+  ([gauge-ns gauge-id]
+    ((read-history (metric-types :gauges) gauge-ns gauge-id nil) :values)
+    )
+  ([gauge-ns gauge-id tags]
+    ((read-history (metric-types :gauges) gauge-ns gauge-id tags) :values)
+    )
   )
 
 (defn- reset-gauge-history [gauge-ns gauge-id limit]
@@ -32,16 +40,24 @@
   (read-metric (metric-types :measures) measure-ns measure-id)
   )
 
-(defn- update-measure [measure-ns measure-id timestamp value]
-  (set-metric (metric-types :measures) measure-ns measure-id timestamp value)
+(defn- update-measure 
+  ([measure-ns measure-id timestamp value]
+    (set-metric (metric-types :measures) measure-ns measure-id timestamp value #{}))
+  ([measure-ns measure-id timestamp value tags]
+    (set-metric (metric-types :measures) measure-ns measure-id timestamp value tags))
   )
 
 (defn- list-measures [measure-ns]
   (list-metrics (metric-types :measures) measure-ns)
   )
 
-(defn- read-measure-history [measure-ns measure-id]
-  ((read-history (metric-types :measures) measure-ns measure-id) :values)
+(defn- read-measure-history
+  ([measure-ns measure-id]
+    ((read-history (metric-types :measures) measure-ns measure-id nil) :values)
+    )
+  ([measure-ns measure-id tags]
+    ((read-history (metric-types :measures) measure-ns measure-id tags) :values)
+    )
   )
 
 (defn- reset-measure-history [measure-ns measure-id limit]
@@ -56,16 +72,24 @@
   (read-metric (metric-types :counters) counter-ns counter-id)
   )
 
-(defn- update-counter [counter-ns counter-id timestamp value]
-  (set-metric (metric-types :counters) counter-ns counter-id timestamp value)
+(defn- update-counter 
+  ([counter-ns counter-id timestamp value]
+    (set-metric (metric-types :counters) counter-ns counter-id timestamp value #{}))
+  ([counter-ns counter-id timestamp value tags]
+    (set-metric (metric-types :counters) counter-ns counter-id timestamp value tags))
   )
 
 (defn- list-counters [counter-ns]
   (list-metrics (metric-types :counters) counter-ns)
   )
 
-(defn- read-counter-history [counter-ns counter-id]
-  ((read-history (metric-types :counters) counter-ns counter-id) :values)
+(defn- read-counter-history
+  ([counter-ns counter-id]
+    ((read-history (metric-types :counters) counter-ns counter-id nil) :values)
+    )
+  ([counter-ns counter-id tags]
+    ((read-history (metric-types :counters) counter-ns counter-id tags) :values)
+    )
   )
 
 (defn- reset-counter-history [counter-ns counter-id limit]
@@ -80,16 +104,24 @@
   (read-metric (metric-types :timers) timer-ns timer-id)
   )
 
-(defn- update-timer [timer-ns timer-id timestamp value]
-  (set-metric (metric-types :timers) timer-ns timer-id timestamp value)
+(defn- update-timer 
+  ([timer-ns timer-id timestamp value]
+    (set-metric (metric-types :timers) timer-ns timer-id timestamp value #{}))
+  ([timer-ns timer-id timestamp value tags]
+    (set-metric (metric-types :timers) timer-ns timer-id timestamp value tags))
   )
 
 (defn- list-timers [timer-ns]
   (list-metrics (metric-types :timers) timer-ns)
   )
 
-(defn- read-timer-history [timer-ns timer-id]
-  ((read-history (metric-types :timers) timer-ns timer-id) :values)
+(defn- read-timer-history
+  ([timer-ns timer-id]
+    ((read-history (metric-types :timers) timer-ns timer-id nil) :values)
+    )
+  ([timer-ns timer-id tags]
+    ((read-history (metric-types :timers) timer-ns timer-id tags) :values)
+    )
   )
 
 (defn- reset-timer-history [timer-ns timer-id limit]
@@ -142,6 +174,16 @@
     )
   )
 
+(deftest gauge-history-with-tags
+  (testing "Gauge history with tags"
+    (update-gauge "gauge-history-with-tags" "1" "1" "v1" #{"tag1", "tag2"})
+    (update-gauge "gauge-history-with-tags" "1" "2" "v2" #{"tag3"})
+    (flush-gauges-in "gauge-history-with-tags")
+    (is (= 1 (count (read-gauge-history "gauge-history-with-tags" "1" #{"tag1", "tag2"}))))
+    (is (= "1" ((first (read-gauge-history "gauge-history-with-tags" "1" #{"tag1", "tag2"})) 0)))
+    )
+  )
+
 (deftest measure-metrics
   (testing "Null measure"
     (is (nil? (read-measure "measure-metrics" "1")))
@@ -189,6 +231,16 @@
     (flush-measures-in "measure-history")
     (is (= "2" ((first (read-measure-history "measure-history" "1")) 0)))
     (is (= "3" ((second (read-measure-history "measure-history" "1")) 0)))
+    )
+  )
+
+(deftest measure-history-with-tags
+  (testing "Measure history with tags"
+    (update-measure "measure-history-with-tags" "1" "1" "1" #{"tag1", "tag2"})
+    (update-measure "measure-history-with-tags" "1" "2" "2" #{"tag3"})
+    (flush-measures-in "measure-history-with-tags")
+    (is (= 1 (count (read-measure-history "measure-history-with-tags" "1" #{"tag1", "tag2"}))))
+    (is (= "1" ((first (read-measure-history "measure-history-with-tags" "1" #{"tag1", "tag2"})) 0)))
     )
   )
 
@@ -243,6 +295,16 @@
     (flush-counters-in "counter-history")
     (is (= "2" ((first (read-counter-history "counter-history" "1")) 0)))
     (is (= "3" ((second (read-counter-history "counter-history" "1")) 0)))
+    )
+  )
+
+(deftest counter-history-with-tags
+  (testing "Counter history with tags"
+    (update-counter "counter-history-with-tags" "1" "1" "1" #{"tag1", "tag2"})
+    (update-counter "counter-history-with-tags" "1" "2" "2" #{"tag3"})
+    (flush-counters-in "counter-history-with-tags")
+    (is (= 1 (count (read-counter-history "counter-history-with-tags" "1" #{"tag1", "tag2"}))))
+    (is (= "1" ((first (read-counter-history "counter-history-with-tags" "1" #{"tag1", "tag2"})) 0)))
     )
   )
 
@@ -309,5 +371,15 @@
     (flush-timers-in "timer-history")
     (is (= "2" ((first (read-timer-history "timer-history" "1")) 0)))
     (is (= "3" ((second (read-timer-history "timer-history" "1")) 0)))
+    )
+  )
+
+(deftest timer-history-with-tags
+  (testing "Timer history with tags"
+    (update-timer "timer-history-with-tags" "1" "1" "1" #{"tag1", "tag2"})
+    (update-timer "timer-history-with-tags" "1" "2" "2" #{"tag3"})
+    (flush-timers-in "timer-history-with-tags")
+    (is (= 1 (count (read-timer-history "timer-history-with-tags" "1" #{"tag1", "tag2"}))))
+    (is (= "1" ((first (read-timer-history "timer-history-with-tags" "1" #{"tag1", "tag2"})) 0)))
     )
   )

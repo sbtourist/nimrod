@@ -1,5 +1,6 @@
 (ns nimrod.web.app
  (:use
+   [clojure.string :as string :only [split]]
    [clojure.contrib.logging :as log]
    [clojure.contrib.json :as json]
    [compojure.core :as http]
@@ -40,11 +41,11 @@
   (http/GET "/logs" []
     (response :ok (list-tailers))
     )
-  (http/DELETE ["/logs/:log-id" :log-id #"[^/?#]+"] [log-id]
+  (http/DELETE "/logs/:log-id" [log-id]
     (stop-tailer log-id)
     (response :no-content)
     )
-  (http/GET ["/logs/:log-id/:metric-type" :log-id #"[^/?#]+" :metric-type #"[^/?#]+"] [log-id metric-type]
+  (http/GET "/logs/:log-id/:metric-type" [log-id metric-type]
     (if-let [metric (metric-types (keyword metric-type))]
       (if-let [result (list-metrics metric log-id)]
         (response :ok result)
@@ -53,7 +54,7 @@
       (response :error {:error (str "Bad metric type: " metric-type)})
       )
     )
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id" :log-id #"[^/?#]+" :metric-type #"[^/?#]+" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
     (if-let [metric (metric-types (keyword metric-type))]
       (if-let [result (read-metric metric log-id metric-id)]
         (response :ok result)
@@ -62,7 +63,7 @@
       (response :error {:error (str "Bad metric type: " metric-id)})
       )
     )
-  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history" :log-id #"[^/?#]+" :metric-type #"[^/?#]+" :metric-id #"[^/?#]+"] [log-id metric-type metric-id limit]
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id limit]
     (if-let [metric (metric-types (keyword metric-type))]
       (do 
         (reset-history metric log-id metric-id (Long/parseLong limit))
@@ -71,9 +72,18 @@
       (response :error {:error (str "Bad metric type: " metric-id)})
       )
     )
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :log-id #"[^/?#]+" :metric-type #"[^/?#]+" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
     (if-let [metric (metric-types (keyword metric-type))]
-      (if-let [result (read-history metric log-id metric-id)]
+      (if-let [result (read-history metric log-id metric-id nil)]
+        (response :ok result)
+        (response :not-found)
+        )
+      (response :error {:error (str "Bad metric type: " metric-id)})
+      )
+    )
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/:tags" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] [log-id metric-type metric-id tags]
+    (if-let [metric (metric-types (keyword metric-type))]
+      (if-let [result (read-history metric log-id metric-id (into #{} (string/split tags #",")))]
         (response :ok result)
         (response :not-found)
         )
