@@ -7,6 +7,7 @@
  )
 
 (defonce log-pattern (re-pattern ".*\\[nimrod].*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.*)\\].*"))
+(defonce no-tags-log-pattern (re-pattern ".*\\[nimrod].*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*"))
 
 (defn- split-match [match r]
   (if (seq match)
@@ -16,11 +17,15 @@
   )
 
 (defn- extract [line]
-  (let [matches (into [] (rest (re-matches log-pattern line)))]
-    (if (seq matches)
+  (if-let [matches (re-matches log-pattern line)]
+    (let [matches (vec (rest matches))]
       {:timestamp (matches 0) :metric (matches 1) :name (matches 2)  :value (matches 3) :tags (into #{} (split-match (matches 4) #","))}
-      nil
       )
+    (if-let [matches (re-matches no-tags-log-pattern line)]
+      (let [matches (vec (rest matches))]
+        {:timestamp (matches 0) :metric (matches 1) :name (matches 2)  :value (matches 3) :tags #{}}
+        )
+      nil)
     )
   )
 

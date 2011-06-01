@@ -40,7 +40,7 @@
     )
   (testing "Process log line with no tags"
     (binding [metric-types test-metrics]
-      (process "log" "[nimrod][1][metric][name][value][]")
+      (process "log" "[nimrod][1][metric][name][value]")
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
       (is (= "name" (@test-metric :name)))
@@ -51,21 +51,21 @@
     )
   (testing "No log line processing due to missing prefix"
     (binding [metric-types test-metrics]
-      (process "log" "[1][metric][name][value][]")
+      (process "log" "[1][metric][name][value]")
       (is (nil? @test-metric))
       (reset! test-metric nil)
       )
     )
   (testing "No log line processing due to bad timestamp"
     (binding [metric-types test-metrics]
-      (process "log" "[nimrod][bad timestamp][metric][name][value][]")
+      (process "log" "[nimrod][bad timestamp][metric][name][value]")
       (is (nil? @test-metric))
       (reset! test-metric nil)
       )
     )
   (testing "No log line processing due to bad metric"
     (binding [metric-types test-metrics]
-      (process "log" "[nimrod][1][bad metric][name][value][]")
+      (process "log" "[nimrod][1][bad metric][name][value]")
       (is (nil? @test-metric))
       (reset! test-metric nil)
       )
