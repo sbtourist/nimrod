@@ -20,7 +20,7 @@ It currently provides the following features:
 
 ## Get and Build
 
-Nimrod is written in Clojure and doesn't currently come in binary form, so you have to checkout the git repository and build it with the wonderful [Leiningen](http://github.com/technomancy/leiningen).
+Nimrod is written in wonderful Clojure and doesn't currently come in binary form, so you have to checkout the git repository and build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
 It is as easy as:
 
     $> lein uberjar
@@ -31,7 +31,7 @@ Once you have built the Nimrod jar, you can easily start it as follows (replace 
 
     $> java -cp nimrod-0.1-SNAPSHOT-standalone.jar nimrod.web.startup 8000
 
-This will start the Nimrod server and log processing daemon.
+This will start the Nimrod server and log processing.
 
 Please note that Nimrod must be started on the same computer hosting the logs to listen to and process.
 
@@ -39,7 +39,7 @@ Please note that Nimrod must be started on the same computer hosting the logs to
 
 Nimrod only requires you to register the logs you want to listen and process, by issuing the following request:
 
-    POST /logs?file=log_file&interval=listen_interval
+    POST /logs?file=:log_file&interval=:listen_interval
 
 You have to provide the path of the log file, and the milliseconds interval among subsequent log reads: Nimrod will return a JSON object with the log numeric identifier,
 which you will use later to query for metrics.
@@ -55,8 +55,9 @@ Then, start logging your metrics in the Nimrod-specific format, providing the fo
  * "timers"
 * The metric identifier for the specified type.
 * The metric value.
+* An optional comma-separated list of metric tags.
 
-Here's an example:
+Here's an example, without tags:
 
     [nimrod][123456789][gauges][player][sergio]
 
@@ -64,22 +65,30 @@ But you can also interleave whatever you want between Nimrod-specific values, in
 
     [nimrod][123456789][gauges] - Current [player] is: [sergio]
 
+And with tags:
+
+    [nimrod][123456789][gauges][player][sergio][twitter:sbtourist,github:sbtourist]
+
 ## Query
 
 Nimrod metrics can be queried by issuing the following request:
 
-    GET /logs/log_id/metric_type/metric_id
+    GET /logs/:log_id/:metric_type/:metric_id
 
-Where *log_id* is the log identifier as provided by Nimrod after log registration, *metric_type* is the name of the metric type as specified before and
-*metric_id* is the name of the metric you want to read.
+Where *:log_id* is the log identifier as provided by Nimrod after log registration, *:metric_type* is the name of the metric type as specified before and
+*:metric_id* is the name of the metric you want to read.
 
-You will alway get the latest metric value, but you can also access the metric history as follows:
+You will always get the latest metric value, but you can also access the metric history as follows:
 
-    GET /logs/log_id/metric_type/metric_id/history
+    GET /logs/:log_id/:metric_type/:metric_id/history
+
+And browse through the history by tags, providing the comma separated list of tags to match:
+
+    GET /logs/:log_id/:metric_type/:metric_id/history/:tags
 
 Metric history and its depth can be reset as follows:
 
-    POST /logs/log_id/metric_type/metric_id/history?limit=history_depth
+    POST /logs/:log_id/:metric_type/:metric_id/history?limit=:history_depth
 
 # Metrics
 
