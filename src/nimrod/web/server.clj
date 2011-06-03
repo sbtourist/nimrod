@@ -1,5 +1,6 @@
 (ns nimrod.web.server
- (:use 
+ (:use
+   [clojure.contrib.logging :as log]
    [ring.adapter.jetty]
    [nimrod.core.util]
    [nimrod.conf.loader]
@@ -10,7 +11,7 @@
 
 (defn start [jetty port]
   (when (nil? jetty)
-    (load-props "nimrod.properties")
+    (try (load-props "nimrod.properties") (catch java.io.FileNotFoundException ex (log/info (.getMessage ex))))
     (run-jetty nimrod-app {:port port :join? false})
     )
   )
