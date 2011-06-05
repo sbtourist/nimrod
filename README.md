@@ -33,16 +33,25 @@ Once you have built the Nimrod jar, you can easily start it as follows (replace 
 
 This will start the Nimrod server and log processing.
 
+Logs can be pre-registered at startup by providing a *nimrod.properties* file in the same directory you start Nimrod,
+and containing the *nimrod.logs* property with a comma-separated list of log paths with related intervals, as follows:
+
+    nimrod.logs = log1:interval1,log2:interval2, ...
+
 Please note that Nimrod must be started on the same computer hosting the logs to listen to and process.
 
 ## Log
 
-Nimrod only requires you to register the logs you want to listen and process, by issuing the following request:
+You can register the logs you want to listen to and process, by issuing the following request:
 
     POST /logs?file=:log_file&interval=:listen_interval
 
 You have to provide the path of the log file, and the milliseconds interval among subsequent log reads: Nimrod will return a JSON object with the log numeric identifier,
 which you will use later to query for metrics.
+
+You can query for registered logs too:
+
+    GET /logs
 
 Then, start logging your metrics in the Nimrod-specific format, providing the following information in square brackets:
 
