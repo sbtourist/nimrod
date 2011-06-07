@@ -17,4 +17,4 @@
 
 (defn unrationalize [n] (if (ratio? n) (float n) n))
 
-(defn display [m] (reduce conj {:date (current-date-string)} (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))
+(defn display [m] (reduce conj (sorted-map :date (current-date-string)) (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))
