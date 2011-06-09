@@ -10,10 +10,15 @@
     (if-let [logs-property (.getProperty props "nimrod.logs")]
       (loop [logs (string/split logs-property #",")]
         (let [log-data (string/split (first logs) #":")]
-          (start-tailer (log-data 0) (Long/parseLong (log-data 1)))
-          (if-let [other-logs (seq (rest logs))]
-            (recur other-logs)
-            nil
+          (if (= 2 (count log-data))
+            (do
+              (start-tailer (log-data 0) (Long/parseLong (log-data 1)))
+              (if-let [other-logs (seq (rest logs))]
+                (recur other-logs)
+                nil
+                )
+              )
+            (throw (IllegalStateException. (str "Bad logs configuration: " log-data)))
             )
           )
         )
