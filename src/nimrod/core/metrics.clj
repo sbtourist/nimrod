@@ -9,18 +9,18 @@
 
 (defn- init-history 
   ([limit]
-    {:limit limit :size 0 :values (sorted-map)})
-  ([limit timestamp value]
-    {:limit limit :size 1 :values (sorted-map timestamp value)})
+    {:limit limit :size 0 :values []})
+  ([limit value]
+    {:limit limit :size 1 :values (vector value)})
   )
 
-(defn- update-history [history timestamp value]
+(defn- update-history [history value]
   (let [limit (history :limit) values (history :values) size (count values)]
     (if (= size limit)
-      (let [new-values (assoc (dissoc values (first (keys values))) timestamp value)]
+      (let [new-values (conj (rest values) value)]
         (assoc history :values new-values :size (count new-values))
         )
-      (let [new-values (assoc values timestamp value)]
+      (let [new-values (conj values value)]
         (assoc history :values new-values :size (count new-values))
         )
       )
@@ -181,7 +181,7 @@
       (send metric #(let [state (or %1 {:history (init-history 100) :computation nil :value nil})
                           computed (compute-fn (state :computation) metric-id timestamp value tags)
                           displayed (display computed)]
-                      (conj state {:history (update-history (state :history) timestamp displayed) :computation computed :value displayed})
+                      (conj state {:history (update-history (state :history) displayed) :computation computed :value displayed})
                       )
         )
       )
@@ -211,8 +211,8 @@
     (if-let [metrics-in-ns (@metric-type metric-ns)]
       (if-let [metric (metrics-in-ns metric-id)]
         (if (seq tags)
-          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags ((second %1) :tags)) (history :values))]
-            (assoc history :size (count filtered-values) :values (into {} filtered-values))
+          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
+            (assoc history :size (count filtered-values) :values (apply vector filtered-values))
             )
           (@metric :history)
           )
