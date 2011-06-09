@@ -29,49 +29,49 @@
 
 ; ---
 
-(defn- compute-gauge [current id timestamp value tags]
-  (let [new-time (Long/parseLong timestamp) new-value value]
+(defn- compute-status [current id timestamp value tags]
+  (let [new-time (Long/parseLong timestamp) status value]
     (if (not (nil? current))
-      (conj current {:timestamp new-time :value new-value :tags tags})
-      {:id id :timestamp new-time :value new-value :tags tags}
+      (conj current {:timestamp new-time :status status :tags tags})
+      {:id id :timestamp new-time :status status :tags tags}
       )
     )
   )
 
 ; ---
 
-(defn- compute-measure [current id timestamp value tags]
-  (let [new-time (Long/parseLong timestamp) measure (Long/parseLong value)]
+(defn- compute-gauge [current id timestamp value tags]
+  (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong value)]
     (if (not (nil? current))
       (let [previous-time (current :timestamp)
             previous-interval-average (current :interval-average)
             previous-interval-variance (current :interval-variance)
-            previous-measure-average (current :measure-average)
-            previous-measure-variance (current :measure-variance)
+            previous-gauge-average (current :gauge-average)
+            previous-gauge-variance (current :gauge-variance)
             interval (- new-time previous-time)
             samples (inc (current :samples))
             interval-average (average (dec samples) previous-interval-average interval)
             interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
-            measure-average (average samples previous-measure-average measure)
-            measure-variance (variance samples previous-measure-variance previous-measure-average measure-average measure)]
+            gauge-average (average samples previous-gauge-average gauge)
+            gauge-variance (variance samples previous-gauge-variance previous-gauge-average gauge-average gauge)]
         (conj current {:timestamp new-time
-                       :measure measure
+                       :gauge gauge
                        :samples samples
                        :interval-average interval-average
                        :interval-variance interval-variance
-                       :measure-average measure-average
-                       :measure-variance measure-variance
+                       :gauge-average gauge-average
+                       :gauge-variance gauge-variance
                        :tags tags
                        })
         )
       {:id id
        :timestamp new-time
-       :measure measure
+       :gauge gauge
        :samples 1
        :interval-average 0
        :interval-variance 0
-       :measure-average measure
-       :measure-variance 0
+       :gauge-average gauge
+       :gauge-variance 0
        :tags tags}
       )
     )
@@ -234,8 +234,8 @@
 ; ---
 
 (defonce metric-types {
+                       :statuses (Metric. (ref {}) compute-status)
                        :gauges (Metric. (ref {}) compute-gauge)
-                       :measures (Metric. (ref {}) compute-measure)
                        :counters (Metric. (ref {}) compute-counter)
                        :timers (Metric. (ref {}) compute-timer)
                        })

@@ -4,6 +4,38 @@
    [nimrod.core.metrics])
  )
 
+(defn- read-status [status-ns status-id]
+  (read-metric (metric-types :statuses) status-ns status-id)
+  )
+
+(defn- update-status
+  ([status-ns status-id timestamp value]
+    (set-metric (metric-types :statuses) status-ns status-id timestamp value #{}))
+  ([status-ns status-id timestamp value tags]
+    (set-metric (metric-types :statuses) status-ns status-id timestamp value tags))
+  )
+
+(defn- list-statuses [status-ns]
+  (list-metrics (metric-types :statuses) status-ns)
+  )
+
+(defn- read-status-history
+  ([status-ns status-id]
+    ((read-history (metric-types :statuses) status-ns status-id nil) :values)
+    )
+  ([status-ns status-id tags]
+    ((read-history (metric-types :statuses) status-ns status-id tags) :values)
+    )
+  )
+
+(defn- reset-status-history [status-ns status-id limit]
+  (reset-history (metric-types :statuses) status-ns status-id limit)
+  )
+
+(defn- flush-statuses-in [status-ns]
+  (flush-metrics (metric-types :statuses) status-ns)
+  )
+
 (defn- read-gauge [gauge-ns gauge-id]
   (read-metric (metric-types :gauges) gauge-ns gauge-id)
   )
@@ -34,38 +66,6 @@
 
 (defn- flush-gauges-in [gauge-ns]
   (flush-metrics (metric-types :gauges) gauge-ns)
-  )
-
-(defn- read-measure [measure-ns measure-id]
-  (read-metric (metric-types :measures) measure-ns measure-id)
-  )
-
-(defn- update-measure 
-  ([measure-ns measure-id timestamp value]
-    (set-metric (metric-types :measures) measure-ns measure-id timestamp value #{}))
-  ([measure-ns measure-id timestamp value tags]
-    (set-metric (metric-types :measures) measure-ns measure-id timestamp value tags))
-  )
-
-(defn- list-measures [measure-ns]
-  (list-metrics (metric-types :measures) measure-ns)
-  )
-
-(defn- read-measure-history
-  ([measure-ns measure-id]
-    ((read-history (metric-types :measures) measure-ns measure-id nil) :values)
-    )
-  ([measure-ns measure-id tags]
-    ((read-history (metric-types :measures) measure-ns measure-id tags) :values)
-    )
-  )
-
-(defn- reset-measure-history [measure-ns measure-id limit]
-  (reset-history (metric-types :measures) measure-ns measure-id limit)
-  )
-
-(defn- flush-measures-in [measure-ns]
-  (flush-metrics (metric-types :measures) measure-ns)
   )
 
 (defn- read-counter [counter-ns counter-id]
@@ -132,23 +132,83 @@
   (flush-metrics (metric-types :timers) timer-ns)
   )
 
+(deftest status-metrics
+  (testing "Null status"
+    (is (nil? (read-status "status-metrics" "1")))
+    )
+  (testing "Initial status value"
+    (update-status "status-metrics" "1" "1" "v1")
+    (flush-statuses-in "status-metrics")
+    (is (not (nil? (read-status "status-metrics" "1"))))
+    (is (= 1 ((read-status "status-metrics" "1") :timestamp)))
+    (is (= "v1" ((read-status "status-metrics" "1") :status)))
+    )
+  (testing "Updated status value"
+    (update-status "status-metrics" "1" "2" "v2")
+    (flush-statuses-in "status-metrics")
+    (is (not (nil? (read-status "status-metrics" "1"))))
+    (is (= 2 ((read-status "status-metrics" "1") :timestamp)))
+    (is (= "v2" ((read-status "status-metrics" "1") :status)))
+    )
+  (testing "List statuses"
+    (is (= ["1"] (list-statuses "status-metrics")))
+    )
+  )
+
+(deftest status-history
+  (testing "Reset status history"
+    (reset-status-history "status-history" "1" 2)
+    )
+  (testing "Status history under limit"
+    (update-status "status-history" "1" "1" "v1")
+    (update-status "status-history" "1" "2" "v2")
+    (flush-statuses-in "status-history")
+    (is (= 1 ((first (read-status-history "status-history" "1")) :timestamp)))
+    (is (= 2 ((second (read-status-history "status-history" "1")) :timestamp)))
+    )
+  (testing "Status history over limit"
+    (update-status "status-history" "1" "3" "v3")
+    (flush-statuses-in "status-history")
+    (is (= 2 ((first (read-status-history "status-history" "1")) :timestamp)))
+    (is (= 3 ((second (read-status-history "status-history" "1")) :timestamp)))
+    )
+  )
+
+(deftest status-history-with-tags
+  (testing "Status history with tags"
+    (update-status "status-history-with-tags" "1" "1" "v1" #{"tag1", "tag2"})
+    (update-status "status-history-with-tags" "1" "2" "v2" #{"tag3"})
+    (flush-statuses-in "status-history-with-tags")
+    (is (= 1 (count (read-status-history "status-history-with-tags" "1" #{"tag1", "tag2"}))))
+    (is (= 1 ((first (read-status-history "status-history-with-tags" "1" #{"tag1", "tag2"})) :timestamp)))
+    )
+  )
+
 (deftest gauge-metrics
   (testing "Null gauge"
     (is (nil? (read-gauge "gauge-metrics" "1")))
     )
-  (testing "Initial gauge value"
-    (update-gauge "gauge-metrics" "1" "1" "v1")
-    (flush-gauges-in "gauge-metrics")
-    (is (not (nil? (read-gauge "gauge-metrics" "1"))))
-    (is (= 1 ((read-gauge "gauge-metrics" "1") :timestamp)))
-    (is (= "v1" ((read-gauge "gauge-metrics" "1") :value)))
-    )
-  (testing "Updated gauge value"
-    (update-gauge "gauge-metrics" "1" "2" "v2")
+  (testing "Initial gauge values"
+    (update-gauge "gauge-metrics" "1" "2" "4")
     (flush-gauges-in "gauge-metrics")
     (is (not (nil? (read-gauge "gauge-metrics" "1"))))
     (is (= 2 ((read-gauge "gauge-metrics" "1") :timestamp)))
-    (is (= "v2" ((read-gauge "gauge-metrics" "1") :value)))
+    (is (= 4 ((read-gauge "gauge-metrics" "1") :gauge)))
+    (is (= 4 ((read-gauge "gauge-metrics" "1") :gauge-average)))
+    (is (= 0 ((read-gauge "gauge-metrics" "1") :gauge-variance)))
+    (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-average)))
+    (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-variance)))
+    )
+  (testing "Updated gauge values"
+    (update-gauge "gauge-metrics" "1" "4" "6")
+    (flush-gauges-in "gauge-metrics")
+    (is (not (nil? (read-gauge "gauge-metrics" "1"))))
+    (is (= 4 ((read-gauge "gauge-metrics" "1") :timestamp)))
+    (is (= 6 ((read-gauge "gauge-metrics" "1") :gauge)))
+    (is (= 5 ((read-gauge "gauge-metrics" "1") :gauge-average)))
+    (is (= 2 ((read-gauge "gauge-metrics" "1") :gauge-variance)))
+    (is (= 2 ((read-gauge "gauge-metrics" "1") :interval-average)))
+    (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-variance)))
     )
   (testing "List gauges"
     (is (= ["1"] (list-gauges "gauge-metrics")))
@@ -160,14 +220,14 @@
     (reset-gauge-history "gauge-history" "1" 2)
     )
   (testing "Gauge history under limit"
-    (update-gauge "gauge-history" "1" "1" "v1")
-    (update-gauge "gauge-history" "1" "2" "v2")
+    (update-gauge "gauge-history" "1" "1" "1")
+    (update-gauge "gauge-history" "1" "2" "2")
     (flush-gauges-in "gauge-history")
     (is (= 1 ((first (read-gauge-history "gauge-history" "1")) :timestamp)))
     (is (= 2 ((second (read-gauge-history "gauge-history" "1")) :timestamp)))
     )
   (testing "Gauge history over limit"
-    (update-gauge "gauge-history" "1" "3" "v3")
+    (update-gauge "gauge-history" "1" "3" "3")
     (flush-gauges-in "gauge-history")
     (is (= 2 ((first (read-gauge-history "gauge-history" "1")) :timestamp)))
     (is (= 3 ((second (read-gauge-history "gauge-history" "1")) :timestamp)))
@@ -176,71 +236,11 @@
 
 (deftest gauge-history-with-tags
   (testing "Gauge history with tags"
-    (update-gauge "gauge-history-with-tags" "1" "1" "v1" #{"tag1", "tag2"})
-    (update-gauge "gauge-history-with-tags" "1" "2" "v2" #{"tag3"})
+    (update-gauge "gauge-history-with-tags" "1" "1" "1" #{"tag1", "tag2"})
+    (update-gauge "gauge-history-with-tags" "1" "2" "2" #{"tag3"})
     (flush-gauges-in "gauge-history-with-tags")
     (is (= 1 (count (read-gauge-history "gauge-history-with-tags" "1" #{"tag1", "tag2"}))))
     (is (= 1 ((first (read-gauge-history "gauge-history-with-tags" "1" #{"tag1", "tag2"})) :timestamp)))
-    )
-  )
-
-(deftest measure-metrics
-  (testing "Null measure"
-    (is (nil? (read-measure "measure-metrics" "1")))
-    )
-  (testing "Initial measure values"
-    (update-measure "measure-metrics" "1" "2" "4")
-    (flush-measures-in "measure-metrics")
-    (is (not (nil? (read-measure "measure-metrics" "1"))))
-    (is (= 2 ((read-measure "measure-metrics" "1") :timestamp)))
-    (is (= 4 ((read-measure "measure-metrics" "1") :measure)))
-    (is (= 4 ((read-measure "measure-metrics" "1") :measure-average)))
-    (is (= 0 ((read-measure "measure-metrics" "1") :measure-variance)))
-    (is (= 0 ((read-measure "measure-metrics" "1") :interval-average)))
-    (is (= 0 ((read-measure "measure-metrics" "1") :interval-variance)))
-    )
-  (testing "Updated measure values"
-    (update-measure "measure-metrics" "1" "4" "6")
-    (flush-measures-in "measure-metrics")
-    (is (not (nil? (read-measure "measure-metrics" "1"))))
-    (is (= 4 ((read-measure "measure-metrics" "1") :timestamp)))
-    (is (= 6 ((read-measure "measure-metrics" "1") :measure)))
-    (is (= 5 ((read-measure "measure-metrics" "1") :measure-average)))
-    (is (= 2 ((read-measure "measure-metrics" "1") :measure-variance)))
-    (is (= 2 ((read-measure "measure-metrics" "1") :interval-average)))
-    (is (= 0 ((read-measure "measure-metrics" "1") :interval-variance)))
-    )
-  (testing "List measures"
-    (is (= ["1"] (list-measures "measure-metrics")))
-    )
-  )
-
-(deftest measure-history
-  (testing "Reset measure history"
-    (reset-measure-history "measure-history" "1" 2)
-    )
-  (testing "Measure history under limit"
-    (update-measure "measure-history" "1" "1" "1")
-    (update-measure "measure-history" "1" "2" "2")
-    (flush-measures-in "measure-history")
-    (is (= 1 ((first (read-measure-history "measure-history" "1")) :timestamp)))
-    (is (= 2 ((second (read-measure-history "measure-history" "1")) :timestamp)))
-    )
-  (testing "Measure history over limit"
-    (update-measure "measure-history" "1" "3" "3")
-    (flush-measures-in "measure-history")
-    (is (= 2 ((first (read-measure-history "measure-history" "1")) :timestamp)))
-    (is (= 3 ((second (read-measure-history "measure-history" "1")) :timestamp)))
-    )
-  )
-
-(deftest measure-history-with-tags
-  (testing "Measure history with tags"
-    (update-measure "measure-history-with-tags" "1" "1" "1" #{"tag1", "tag2"})
-    (update-measure "measure-history-with-tags" "1" "2" "2" #{"tag3"})
-    (flush-measures-in "measure-history-with-tags")
-    (is (= 1 (count (read-measure-history "measure-history-with-tags" "1" #{"tag1", "tag2"}))))
-    (is (= 1 ((first (read-measure-history "measure-history-with-tags" "1" #{"tag1", "tag2"})) :timestamp)))
     )
   )
 
