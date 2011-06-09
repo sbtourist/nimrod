@@ -17,7 +17,7 @@
 (defn- update-history [history value]
   (let [limit (history :limit) values (history :values) size (count values)]
     (if (= size limit)
-      (let [new-values (conj (rest values) value)]
+      (let [new-values (conj (apply vector (rest values)) value)]
         (assoc history :values new-values :size (count new-values))
         )
       (let [new-values (conj values value)]
