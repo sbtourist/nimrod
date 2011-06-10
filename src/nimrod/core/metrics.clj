@@ -203,7 +203,7 @@
     )
   (list-metrics [this metric-ns]
     (if-let [metrics-in-ns (@metric-type metric-ns)]
-      (into [] (keys metrics-in-ns))
+      (apply vector (sort (keys metrics-in-ns)))
       []
       )
     )
