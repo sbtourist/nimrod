@@ -124,9 +124,12 @@
 ; ---
 
 (defn- compute-timer [current id timestamp value tags]
-  (let [new-time (Long/parseLong timestamp) timer (Long/parseLong value)]
+  (let [new-time (Long/parseLong timestamp) timer new-time action value]
     (if (not (nil? current))
-      (if (= 0 (current :end))
+      (cond
+        (= "start" action)
+        (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
+        (= "stop" action)
         (let [previous-elapsed-time-average (current :elapsed-time-average)
               previous-elapsed-time-variance (current :elapsed-time-variance)
               start (current :start)
@@ -142,9 +145,12 @@
                          :samples samples
                          :tags tags})
           )
-        (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
+        :else (throw (IllegalStateException. (str "Bad timer action: " action)))
         )
-      {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
+      (if (= "start" action)
+        {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
+        (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action)))
+        )
       )
     )
   )

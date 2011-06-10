@@ -313,7 +313,7 @@
     (is (nil? (read-timer "timer-metrics" "1")))
     )
   (testing "Start timer"
-    (update-timer "timer-metrics" "1" "2" "2")
+    (update-timer "timer-metrics" "1" "2" "start")
     (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 2 ((read-timer "timer-metrics" "1") :start)))
@@ -323,7 +323,7 @@
     (is (= 0 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
     )
   (testing "Stop timer"
-    (update-timer "timer-metrics" "1" "4" "4")
+    (update-timer "timer-metrics" "1" "4" "stop")
     (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 2 ((read-timer "timer-metrics" "1") :start)))
@@ -333,7 +333,7 @@
     (is (= 0 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
     )
   (testing "Restart timer"
-    (update-timer "timer-metrics" "1" "6" "6")
+    (update-timer "timer-metrics" "1" "6" "start")
     (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 6 ((read-timer "timer-metrics" "1") :start)))
@@ -341,7 +341,7 @@
     (is (= 0 ((read-timer "timer-metrics" "1") :elapsed-time)))
     (is (= 2 ((read-timer "timer-metrics" "1") :elapsed-time-average)))
     (is (= 0 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
-    (update-timer "timer-metrics" "1" "10" "10")
+    (update-timer "timer-metrics" "1" "10" "stop")
     (flush-timers-in "timer-metrics")
     (is (not (nil? (read-timer "timer-metrics" "1"))))
     (is (= 6 ((read-timer "timer-metrics" "1") :start)))
@@ -360,14 +360,14 @@
     (reset-timer-history "timer-history" "1" 2)
     )
   (testing "Timer history under limit"
-    (update-timer "timer-history" "1" "1" "1")
-    (update-timer "timer-history" "1" "2" "2")
+    (update-timer "timer-history" "1" "1" "start")
+    (update-timer "timer-history" "1" "2" "stop")
     (flush-timers-in "timer-history")
     (is (= 1 ((first (read-timer-history "timer-history" "1")) :timestamp)))
     (is (= 2 ((second (read-timer-history "timer-history" "1")) :timestamp)))
     )
   (testing "Timer history over limit"
-    (update-timer "timer-history" "1" "3" "3")
+    (update-timer "timer-history" "1" "3" "start")
     (flush-timers-in "timer-history")
     (is (= 2 ((first (read-timer-history "timer-history" "1")) :timestamp)))
     (is (= 3 ((second (read-timer-history "timer-history" "1")) :timestamp)))
@@ -376,8 +376,8 @@
 
 (deftest timer-history-with-tags
   (testing "Timer history with tags"
-    (update-timer "timer-history-with-tags" "1" "1" "1" #{"tag1", "tag2"})
-    (update-timer "timer-history-with-tags" "1" "2" "2" #{"tag3"})
+    (update-timer "timer-history-with-tags" "1" "1" "start" #{"tag1", "tag2"})
+    (update-timer "timer-history-with-tags" "1" "2" "stop" #{"tag3"})
     (flush-timers-in "timer-history-with-tags")
     (is (= 1 (count (read-timer-history "timer-history-with-tags" "1" #{"tag1", "tag2"}))))
     (is (= 1 ((first (read-timer-history "timer-history-with-tags" "1" #{"tag1", "tag2"})) :timestamp)))

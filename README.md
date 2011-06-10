@@ -11,10 +11,9 @@ In other words, for those of you who love the bullet points:
 It currently provides the following features:
 
 * On-the-fly registration of logs to process.
-* Dynamic, almost real-time processing of logs.
+* Almost real-time logs processing for metrics extraction.
 * Different types of metrics with basic statistical information attached and history management.
-* No configuration, completely web-based.
-* Json-over-Http.
+* Web-based, Javascript-friendly JSON-over-HTTP server, with default support for Cross Origin Resource Sharing on GET requests.
 
 # Usage
 
@@ -33,8 +32,8 @@ Once you have built the Nimrod jar, you can easily start it as follows (replace 
 
 This will start the Nimrod server and log processing.
 
-Logs can be pre-registered at startup by providing a *nimrod.properties* file in the same directory you start Nimrod,
-and containing the *nimrod.logs* property with a comma-separated list of log paths with related intervals, as follows:
+Logs can be pre-registered at startup by configuring a *nimrod.properties* file placed in the same directory you start Nimrod,
+which must contain the *nimrod.logs* property with a comma-separated list of log paths with related intervals (in milliseconds), as follows:
 
     nimrod.logs = log1:interval1,log2:interval2, ...
 
@@ -42,12 +41,12 @@ Please note that Nimrod must be started on the same computer hosting the logs to
 
 ## Log
 
-You can register the logs you want to listen to and process, by issuing the following request:
+You can dynamically register the logs you want to listen to and process, by issuing the following request:
 
-    POST /logs?file=:log_file&interval=:listen_interval
+    POST /logs?file=log_file&interval=listen_interval
 
-You have to provide the path of the log file, and the milliseconds interval among subsequent log reads: Nimrod will return a JSON object with the log numeric identifier,
-which you will use later to query for metrics.
+You have to provide the path of the log file (*log_file*), and the milliseconds interval among subsequent log reads (*listen_interval*):
+Nimrod will return a JSON object with the log numeric identifier, which you will use later to query for metrics.
 
 You can query for registered logs too:
 
@@ -55,78 +54,103 @@ You can query for registered logs too:
 
 Then, start logging your metrics in the Nimrod-specific format, providing the following information in square brackets:
 
-* The "nimrod" fixed string.
-* The metric timestamp (in milliseconds).
-* The metric type, among one of:
- * "gauges"
- * "measures"
- * "counters"
- * "timers"
-* The metric identifier for the specified type.
-* The metric value.
-* An optional comma-separated list of metric tags.
+* The **nimrod* fixed string.
+* The metric **timestamp** (mostly in milliseconds, but could really be your preferred measure of time).
+* The metric **type**, among one of:
+ * *statuses*
+ * *gauges*
+ * *counters*
+ * *timers*
+* The metric **identifier** for the specified type.
+* The metric **value**.
+* An optional comma-separated list of metric **tags**.
 
 Here's an example, without tags:
 
-    [nimrod][123456789][gauges][player][sergio]
+    [nimrod][123456789][counters][players][100]
 
 But you can also interleave whatever you want between Nimrod-specific values, in order to make your logs more human-friendly:
 
-    [nimrod][123456789][gauges] - Current [player] is: [sergio]
+    [nimrod][123456789][counters] - Current number of [players] is: [100]
 
 And with tags:
 
-    [nimrod][123456789][gauges][player][sergio][twitter:sbtourist,github:sbtourist]
+    [nimrod][123456789][counters][players][100][game_code:123]
 
 ## Query
 
 Nimrod metrics can be queried by issuing the following request:
 
-    GET /logs/:log_id/:metric_type/:metric_id
+    GET /logs/log_id/metric_type/metric_id
 
-Where *:log_id* is the log identifier as provided by Nimrod after log registration, *:metric_type* is the name of the metric type as specified before and
-*:metric_id* is the name of the metric you want to read.
+Where *log_id* is the log identifier as provided by Nimrod after log registration, *metric_type* is the name of the metric type as specified before and
+*metric_id* is the name of the metric you want to read.
 
 You will always get the latest metric value, but you can also access the metric history as follows:
 
-    GET /logs/:log_id/:metric_type/:metric_id/history
+    GET /logs/log_id/metric_type/metric_id/history
 
-And browse through the history by tags, providing the comma separated list of tags to match:
+And browse through the history by tags, providing the comma separated list of *tags* to match:
 
-    GET /logs/:log_id/:metric_type/:metric_id/history/:tags
+    GET /logs/log_id/metric_type/metric_id/history/tags
 
 Metric history and its depth can be reset as follows:
 
-    POST /logs/:log_id/:metric_type/:metric_id/history?limit=:history_depth
+    POST /logs/log_id/metric_type/metric_id/history?limit=history_limit
+
+Where *history_limit* is the new maximum number of history entries.
 
 # Metrics
 
+## Statuses
+
+String values representing a generic value at a given time.
+
+Here's a log line representing a status value:
+
+    [nimrod][123456789][statuses][current_player][sergio]
+
 ## Gauges
 
-String values representing a generic indicator at a given time.
-
-## Measures
-
-Number values representing a fixed measure at a given time.
+Number values representing a fixed indicator at a given time.
 It also provides the following statistical information:
 
 * Average and variance of time intervals between measure updates.
 * Average and variance of the measure.
 
+Here's a log line representing a status value:
+
+    [nimrod][123456789][gauges][current_players][100]
+
 ## Counters
 
-Number values representing an incrementing measure over time.
+Number values representing an incrementing value over time, tracking both the latest increment and the overall counter value.
 It also provides the following statistical information:
 
 * Average and variance of time intervals between counter updates.
 * Average and variance of the counter increment.
 
+Here's a log line representing a status value:
+
+    [nimrod][123456789][counters][total_players][100]
+
 ## Timers
 
-Number values representing the elapsed time between start and end of a given event, cyclically computed at each invocation.
+Number values representing the elapsed time between start and stop of a given event.
 It also provides the following statistical information:
 
 * Average and variance of the elapsed time.
+
+Here's a log line starting a time computation:
+
+    [nimrod][123456788][timers][login][start]
+
+And here's a log line stopping a previously started time computation:
+
+    [nimrod][123456789][timers][login][stop]
+
+Elapsed time will be computed over the provided timestamps above (in the example above, the final value will be 1).
+
 
 ## License
 
