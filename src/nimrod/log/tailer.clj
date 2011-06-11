@@ -48,7 +48,7 @@
   )
 
 (defn list-tailers []
-  (into {}
+  (into (sorted-map)
     (for [tailer @tailers] [(tailer 0) ((tailer 1) :log)])
     )
   )
