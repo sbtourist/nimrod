@@ -11,7 +11,7 @@
   ([limit]
     {:limit limit :size 0 :values []})
   ([limit value]
-    {:limit limit :size 1 :values (vector value)})
+    {:limit limit :size 1 :values [value]})
   )
 
 (defn- update-history [history value]
@@ -31,7 +31,7 @@
 
 (defn- compute-status [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) status value]
-    (if (not (nil? current))
+    (if-let [current current]
       (conj current {:timestamp new-time :status status :tags tags})
       {:id id :timestamp new-time :status status :tags tags}
       )
@@ -42,7 +42,7 @@
 
 (defn- compute-gauge [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong value)]
-    (if (not (nil? current))
+    (if-let [current current]
       (let [previous-time (current :timestamp)
             previous-interval-average (current :interval-average)
             previous-interval-variance (current :interval-variance)
@@ -81,7 +81,7 @@
 
 (defn- compute-counter [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) increment (Long/parseLong value)]
-    (if (not (nil? current))
+    (if-let [current current]
       (let [previous-time (current :timestamp)
             previous-counter (current :counter)
             previous-interval-average (current :interval-average)
@@ -125,7 +125,7 @@
 
 (defn- compute-timer [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) timer new-time action value]
-    (if (not (nil? current))
+    (if-let [current current]
       (cond
         (= "start" action)
         (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
@@ -193,36 +193,30 @@
       )
     )
   (read-metric [this metric-ns metric-id]
-    (if-let [metrics-in-ns (@metric-type metric-ns)]
-      (if-let [metric (metrics-in-ns metric-id)]
-        (@metric :value)
-        nil
-        )
+    (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
+      (@metric :value)
       nil
       )
     )
   (list-metrics [this metric-ns]
-    (if-let [metrics-in-ns (@metric-type metric-ns)]
-      (apply vector (sort (keys metrics-in-ns)))
+    (if-let [metrics (@metric-type metric-ns)]
+      (apply vector (sort (keys metrics)))
       []
       )
     )
   (flush-metrics [this metric-ns]
-    (if-let [metrics-in-ns (@metric-type metric-ns)]
-      (apply await (vals metrics-in-ns))
+    (if-let [metrics (@metric-type metric-ns)]
+      (apply await (vals metrics))
       []
       )
     )
   (read-history [this metric-ns metric-id tags]
-    (if-let [metrics-in-ns (@metric-type metric-ns)]
-      (if-let [metric (metrics-in-ns metric-id)]
-        (if (seq tags)
-          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
-            (assoc history :size (count filtered-values) :values (apply vector filtered-values))
-            )
-          (@metric :history)
+    (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
+      (if (seq tags)
+        (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
+          (assoc history :size (count filtered-values) :values (apply vector filtered-values))
           )
-        nil
+        (@metric :history)
         )
       nil
       )
