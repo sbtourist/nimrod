@@ -161,7 +161,7 @@
   (dosync
     (if-let [metric ((get @metrics metric-ns {}) metric-id)]
       metric
-      (let [metric (new-agent nil)]
+      (let [metric (ref {:history (init-history 100) :computation nil :value nil})]
         (alter metrics assoc-in [metric-ns metric-id] metric)
         metric
         )
@@ -175,7 +175,6 @@
   (set-metric [this metric-ns metric-id timestamp value tags])
   (read-metric [this metric-ns metric-id])
   (list-metrics [this metric-ns])
-  (flush-metrics [this metric-ns])
   (read-history [this metric-ns metric-id tags])
   (reset-history [this metric-ns metric-id limit])
   )
@@ -184,11 +183,11 @@
   MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value tags]
     (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
-      (send metric #(let [state (or %1 {:history (init-history 100) :computation nil :value nil})
-                          computed (compute-fn (state :computation) metric-id timestamp value tags)
-                          displayed (display computed)]
-                      (conj state {:history (update-history (state :history) displayed) :computation computed :value displayed})
-                      )
+      (dosync
+        (let [computed (compute-fn (@metric :computation) metric-id timestamp value tags)
+              displayed (display computed)]
+          (ref-set metric {:history (update-history (@metric :history) displayed) :computation computed :value displayed})
+          )
         )
       )
     )
@@ -201,12 +200,6 @@
   (list-metrics [this metric-ns]
     (if-let [metrics (@metric-type metric-ns)]
       (apply vector (sort (keys metrics)))
-      []
-      )
-    )
-  (flush-metrics [this metric-ns]
-    (if-let [metrics (@metric-type metric-ns)]
-      (apply await (vals metrics))
       []
       )
     )
@@ -223,9 +216,8 @@
     )
   (reset-history [this metric-ns metric-id limit]
     (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
-      (send metric #(let [state (or %1 {:history nil :value nil})]
-                      {:history (init-history limit) :value (state :value)}
-                      )
+      (dosync
+        (alter metric conj {:history (init-history limit)})
         )
       )
     )

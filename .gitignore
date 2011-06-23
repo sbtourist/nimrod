@@ -1,7 +1,7 @@
 pom.xml
 *jar
-/lib/
-/classes/
+/lib/*
+/classes/*
 .lein-deps-sum
 log.txt
 notes.txt
