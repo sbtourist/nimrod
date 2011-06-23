@@ -7,28 +7,6 @@
 
 ; ---
 
-(defn- init-history 
-  ([limit]
-    {:limit limit :size 0 :values []})
-  ([limit value]
-    {:limit limit :size 1 :values [value]})
-  )
-
-(defn- update-history [history value]
-  (let [limit (history :limit) values (history :values) size (count values)]
-    (if (= size limit)
-      (let [new-values (conj (apply vector (rest values)) value)]
-        (assoc history :values new-values :size (count new-values))
-        )
-      (let [new-values (conj values value)]
-        (assoc history :values new-values :size (count new-values))
-        )
-      )
-    )
-  )
-
-; ---
-
 (defn- compute-status [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) status value]
     (if-let [current current]
@@ -157,16 +135,40 @@
 
 ; ---
 
-(defn- get-or-create-metric [metrics metric-ns metric-id]
+(defn- init-history
+  ([limit]
+    {:limit limit :size 0 :values []})
+  ([limit value]
+    {:limit limit :size 1 :values [value]})
+  )
+
+(defn- update-history [history value]
+  (let [limit (history :limit) values (history :values) size (count values)]
+    (if (= size limit)
+      (let [new-values (conj (apply vector (rest values)) value)]
+        (assoc history :values new-values :size (count new-values))
+        )
+      (let [new-values (conj values value)]
+        (assoc history :values new-values :size (count new-values))
+        )
+      )
+    )
+  )
+
+(defn- get-or-create-metric [metric-type metric-ns metric-id]
   (dosync
-    (if-let [metric ((get @metrics metric-ns {}) metric-id)]
+    (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
       metric
       (let [metric (ref {:history (init-history 100) :computation nil :value nil})]
-        (alter metrics assoc-in [metric-ns metric-id] metric)
+        (alter metric-type assoc-in [metric-ns metric-id] metric)
         metric
         )
       )
     )
+  )
+
+(defn- get-metric [metric-type metric-ns metric-id]
+  ((get @metric-type metric-ns {}) metric-id)
   )
 
 ; ---
@@ -179,7 +181,7 @@
   (reset-history [this metric-ns metric-id limit])
   )
 
-(deftype Metric [metric-type compute-fn]
+(deftype MetricType [metric-type compute-fn]
   MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value tags]
     (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
@@ -192,7 +194,7 @@
       )
     )
   (read-metric [this metric-ns metric-id]
-    (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
+    (if-let [metric (get-metric metric-type metric-ns metric-id)]
       (@metric :value)
       nil
       )
@@ -204,7 +206,7 @@
       )
     )
   (read-history [this metric-ns metric-id tags]
-    (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
+    (if-let [metric (get-metric metric-type metric-ns metric-id)]
       (if (seq tags)
         (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
           (assoc history :size (count filtered-values) :values (apply vector filtered-values))
@@ -226,8 +228,8 @@
 ; ---
 
 (defonce metric-types {
-                       :statuses (Metric. (ref {}) compute-status)
-                       :gauges (Metric. (ref {}) compute-gauge)
-                       :counters (Metric. (ref {}) compute-counter)
-                       :timers (Metric. (ref {}) compute-timer)
+                       :statuses (MetricType. (ref {}) compute-status)
+                       :gauges (MetricType. (ref {}) compute-gauge)
+                       :counters (MetricType. (ref {}) compute-counter)
+                       :timers (MetricType. (ref {}) compute-timer)
                        })
