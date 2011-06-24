@@ -79,20 +79,32 @@ And with tags:
 
 ## Query
 
-Nimrod metrics can be queried by issuing the following request:
+Nimrod metrics for a given log and metric type can be queried with the following request:
+
+    GET /logs/log_id/metric_type
+
+Where *log_id* is the log identifier as provided by Nimrod after log registration and *metric_type* is the name of the metric type as specified above
+(again, either *statuses*, *gauges*, *counters* or *timers*).
+
+Optionally, you can also pass a list of tags to narrow down and return only those metrics (for the given type) "marked" with a given set of tags:
+
+    GET /logs/log_id/metric_type?tags=tags_list
+
+Where *tags_list* is a comma-separated string of tag names.
+
+Single Nimrod metrics can be queried by issuing the following request:
 
     GET /logs/log_id/metric_type/metric_id
 
-Where *log_id* is the log identifier as provided by Nimrod after log registration, *metric_type* is the name of the metric type as specified before and
-*metric_id* is the name of the metric you want to read.
+Where *metric_id* is the name of the metric you want to read.
 
 You will always get the latest metric value, but you can also access the metric history as follows:
 
     GET /logs/log_id/metric_type/metric_id/history
 
-And browse through the history by tags, providing the comma separated list of *tags* to match:
+And browse through the history by tags, providing again the comma separated list of tags to match:
 
-    GET /logs/log_id/metric_type/metric_id/history/tags
+    GET /logs/log_id/metric_type/metric_id/history?tags=tags_list
 
 Metric history and its depth can be reset as follows:
 
