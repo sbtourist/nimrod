@@ -43,6 +43,10 @@
     )
   )
 
+(defn- extract-tags [tags]
+  (when (seq tags) (into #{} (string/split tags #",")))
+  )
+
 (http/defroutes nimrod-routes
   (http/POST "/logs" [file interval]
     (let [tailer (start-tailer file (Long/parseLong interval))]
@@ -56,9 +60,9 @@
     (stop-tailer log-id)
     (response :no-content)
     )
-  (http/GET "/logs/:log-id/:metric-type" [log-id metric-type]
+  (http/GET ["/logs/:log-id/:metric-type" :tags #"[^/?#]+"] [log-id metric-type tags]
     (if-let [metric (metric-types (keyword metric-type))]
-      (if-let [result (list-metrics metric log-id)]
+      (if-let [result (list-metrics metric log-id (extract-tags tags))]
         (cors-response :ok result)
         (cors-response :not-found)
         )
@@ -83,18 +87,9 @@
       (response :error {:error (str "Bad metric type: " metric-id)})
       )
     )
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] [log-id metric-type metric-id tags]
     (if-let [metric (metric-types (keyword metric-type))]
-      (if-let [result (read-history metric log-id metric-id nil)]
-        (cors-response :ok result)
-        (cors-response :not-found)
-        )
-      (cors-response :error {:error (str "Bad metric type: " metric-id)})
-      )
-    )
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/:tags" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] [log-id metric-type metric-id tags]
-    (if-let [metric (metric-types (keyword metric-type))]
-      (if-let [result (read-history metric log-id metric-id (into #{} (string/split tags #",")))]
+      (if-let [result (read-history metric log-id metric-id (extract-tags tags))]
         (cors-response :ok result)
         (cors-response :not-found)
         )

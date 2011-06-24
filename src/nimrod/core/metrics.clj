@@ -176,7 +176,7 @@
 (defprotocol MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value tags])
   (read-metric [this metric-ns metric-id])
-  (list-metrics [this metric-ns])
+  (list-metrics [this metric-ns tags])
   (read-history [this metric-ns metric-id tags])
   (reset-history [this metric-ns metric-id limit])
   )
@@ -199,9 +199,12 @@
       nil
       )
     )
-  (list-metrics [this metric-ns]
+  (list-metrics [this metric-ns tags]
     (if-let [metrics (@metric-type metric-ns)]
-      (apply vector (sort (keys metrics)))
+      (if (seq tags)
+        (apply vector (sort (keys (into {} (filter #(cset/subset? tags (((second %1) :value) :tags)) metrics)))))
+        (apply vector (sort (keys metrics)))
+        )
       []
       )
     )

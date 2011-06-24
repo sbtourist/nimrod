@@ -15,8 +15,8 @@
     (set-metric (metric-types :statuses) status-ns status-id timestamp value tags))
   )
 
-(defn- list-statuses [status-ns]
-  (list-metrics (metric-types :statuses) status-ns)
+(defn- list-statuses [status-ns tags]
+  (list-metrics (metric-types :statuses) status-ns tags)
   )
 
 (defn- read-status-history
@@ -43,8 +43,8 @@
     (set-metric (metric-types :gauges) gauge-ns gauge-id timestamp value tags))
   )
 
-(defn- list-gauges [gauge-ns]
-  (list-metrics (metric-types :gauges) gauge-ns)
+(defn- list-gauges [gauge-ns tags]
+  (list-metrics (metric-types :gauges) gauge-ns tags)
   )
 
 (defn- read-gauge-history
@@ -71,8 +71,8 @@
     (set-metric (metric-types :counters) counter-ns counter-id timestamp value tags))
   )
 
-(defn- list-counters [counter-ns]
-  (list-metrics (metric-types :counters) counter-ns)
+(defn- list-counters [counter-ns tags]
+  (list-metrics (metric-types :counters) counter-ns tags)
   )
 
 (defn- read-counter-history
@@ -99,8 +99,8 @@
     (set-metric (metric-types :timers) timer-ns timer-id timestamp value tags))
   )
 
-(defn- list-timers [timer-ns]
-  (list-metrics (metric-types :timers) timer-ns)
+(defn- list-timers [timer-ns tags]
+  (list-metrics (metric-types :timers) timer-ns tags)
   )
 
 (defn- read-timer-history
@@ -133,7 +133,12 @@
     (is (= "v2" ((read-status "status-metrics" "1") :status)))
     )
   (testing "List statuses"
-    (is (= ["1"] (list-statuses "status-metrics")))
+    (is (= ["1"] (list-statuses "status-metrics" nil)))
+    )
+  (testing "List statuses with tags"
+    (update-status "status-metrics" "2" "3" "v3" #{"tag"})
+    (is (= ["2"] (list-statuses "status-metrics" #{"tag"})))
+    (is (= [] (list-statuses "status-metrics" #{"notag"})))
     )
   )
 
@@ -188,7 +193,12 @@
     (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-variance)))
     )
   (testing "List gauges"
-    (is (= ["1"] (list-gauges "gauge-metrics")))
+    (is (= ["1"] (list-gauges "gauge-metrics" nil)))
+    )
+  (testing "List gauges with tags"
+    (update-gauge "gauge-metrics" "2" "1" "1" #{"tag"})
+    (is (= ["2"] (list-gauges "gauge-metrics" #{"tag"})))
+    (is (= [] (list-gauges "gauge-metrics" #{"notag"})))
     )
   )
 
@@ -247,7 +257,12 @@
     (is (= 2 ((read-counter "counter-metrics" "1") :latest-interval)))
     )
   (testing "List counters"
-    (is (= ["1"] (list-counters "counter-metrics")))
+    (is (= ["1"] (list-counters "counter-metrics" nil)))
+    )
+  (testing "List counters with tags"
+    (update-counter "counter-metrics" "2" "1" "1" #{"tag"})
+    (is (= ["2"] (list-counters "counter-metrics" #{"tag"})))
+    (is (= [] (list-counters "counter-metrics" #{"notag"})))
     )
   )
 
@@ -316,7 +331,12 @@
     (is (= 2 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
     )
   (testing "List timers"
-    (is (= ["1"] (list-timers "timer-metrics")))
+    (is (= ["1"] (list-timers "timer-metrics" nil)))
+    )
+  (testing "List timers with tags"
+    (update-timer "timer-metrics" "2" "1" "start" #{"tag"})
+    (is (= ["2"] (list-timers "timer-metrics" #{"tag"})))
+    (is (= [] (list-timers "timer-metrics" #{"notag"})))
     )
   )
 
