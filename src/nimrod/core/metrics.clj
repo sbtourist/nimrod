@@ -176,7 +176,10 @@
 (defprotocol MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value tags])
   (read-metric [this metric-ns metric-id])
+  (remove-metric [this metric-ns metric-id])
   (list-metrics [this metric-ns tags])
+  (remove-metrics [this metric-ns tags])
+  (expire-metrics [this metric-ns age])
   (read-history [this metric-ns metric-id tags])
   (reset-history [this metric-ns metric-id limit])
   )
@@ -188,7 +191,7 @@
       (dosync
         (let [computed (compute-fn (@metric :computation) metric-id timestamp value tags)
               displayed (display computed)]
-          (ref-set metric {:history (update-history (@metric :history) displayed) :computation computed :value displayed})
+          (ref-set metric {:history (update-history (@metric :history) displayed) :computation computed :value displayed :update-time (System/currentTimeMillis)})
           )
         )
       )
@@ -199,13 +202,34 @@
       nil
       )
     )
+  (remove-metric [this metric-ns metric-id]
+    (when-let [metrics (@metric-type metric-ns)]
+      (dosync
+        (alter metric-type conj [metric-ns (dissoc metrics metric-id)])
+        )
+      )
+    )
   (list-metrics [this metric-ns tags]
     (if-let [metrics (@metric-type metric-ns)]
       (if (seq tags)
-        (apply vector (sort (keys (into {} (filter #(cset/subset? tags (((second %1) :value) :tags)) metrics)))))
+        (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :value) :tags)) metrics)))))
         (apply vector (sort (keys metrics)))
         )
       []
+      )
+    )
+  (remove-metrics [this metric-ns tags]
+    (when-let [metrics (@metric-type metric-ns)]
+      (dosync
+        (alter metric-type conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :value) :tags))) metrics))])
+        )
+      )
+    )
+  (expire-metrics [this metric-ns age]
+    (when-let [metrics (@metric-type metric-ns)]
+      (dosync
+        (alter metric-type conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics))])
+        )
       )
     )
   (read-history [this metric-ns metric-id tags]

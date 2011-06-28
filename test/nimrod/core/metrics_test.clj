@@ -19,6 +19,18 @@
   (list-metrics (metric-types :statuses) status-ns tags)
   )
 
+(defn- remove-status [status-ns status-id]
+  (remove-metric (metric-types :statuses) status-ns status-id)
+  )
+
+(defn- remove-statuses [status-ns tags]
+  (remove-metrics (metric-types :statuses) status-ns tags)
+  )
+
+(defn- expire-statuses [status-ns age]
+  (expire-metrics (metric-types :statuses) status-ns age)
+  )
+
 (defn- read-status-history
   ([status-ns status-id]
     ((read-history (metric-types :statuses) status-ns status-id nil) :values)
@@ -60,6 +72,18 @@
   (reset-history (metric-types :gauges) gauge-ns gauge-id limit)
   )
 
+(defn- remove-gauge [gauge-ns gauge-id]
+  (remove-metric (metric-types :gauges) gauge-ns gauge-id)
+  )
+
+(defn- remove-gauges [gauge-ns tags]
+  (remove-metrics (metric-types :gauges) gauge-ns tags)
+  )
+
+(defn- expire-gauges [gauge-ns age]
+  (expire-metrics (metric-types :gauges) gauge-ns age)
+  )
+
 (defn- read-counter [counter-ns counter-id]
   (read-metric (metric-types :counters) counter-ns counter-id)
   )
@@ -73,6 +97,18 @@
 
 (defn- list-counters [counter-ns tags]
   (list-metrics (metric-types :counters) counter-ns tags)
+  )
+
+(defn- remove-counter [counter-ns counter-id]
+  (remove-metric (metric-types :counters) counter-ns counter-id)
+  )
+
+(defn- remove-counters [counter-ns tags]
+  (remove-metrics (metric-types :counters) counter-ns tags)
+  )
+
+(defn- expire-counters [counter-ns age]
+  (expire-metrics (metric-types :counters) counter-ns age)
   )
 
 (defn- read-counter-history
@@ -101,6 +137,18 @@
 
 (defn- list-timers [timer-ns tags]
   (list-metrics (metric-types :timers) timer-ns tags)
+  )
+
+(defn- remove-timer [timer-ns timer-id]
+  (remove-metric (metric-types :timers) timer-ns timer-id)
+  )
+
+(defn- remove-timers [timer-ns tags]
+  (remove-metrics (metric-types :timers) timer-ns tags)
+  )
+
+(defn- expire-timers [timer-ns age]
+  (expire-metrics (metric-types :timers) timer-ns age)
   )
 
 (defn- read-timer-history
@@ -132,13 +180,25 @@
     (is (= 2 ((read-status "status-metrics" "1") :timestamp)))
     (is (= "v2" ((read-status "status-metrics" "1") :status)))
     )
-  (testing "List statuses"
+  (testing "List and remove statuses"
     (is (= ["1"] (list-statuses "status-metrics" nil)))
+    (remove-status "status-metrics" "1")
+    (is (= [] (list-statuses "status-metrics" nil)))
     )
-  (testing "List statuses with tags"
+  (testing "List and remove statuses with tags"
     (update-status "status-metrics" "2" "3" "v3" #{"tag"})
     (is (= ["2"] (list-statuses "status-metrics" #{"tag"})))
     (is (= [] (list-statuses "status-metrics" #{"notag"})))
+    (remove-statuses "status-metrics" #{"tag"})
+    (is (= [] (list-statuses "status-metrics" #{"tag"})))
+    )
+  (testing "Expire statuses"
+    (update-status "status-metrics" "3" "4" "v4")
+    (Thread/sleep 200)
+    (update-status "status-metrics" "4" "5" "v5")
+    (Thread/sleep 100)
+    (expire-statuses "status-metrics" 200)
+    (is (= ["4"] (list-statuses "status-metrics" nil)))
     )
   )
 
@@ -192,13 +252,25 @@
     (is (= 2 ((read-gauge "gauge-metrics" "1") :interval-average)))
     (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-variance)))
     )
-  (testing "List gauges"
+  (testing "List and remove gauges"
     (is (= ["1"] (list-gauges "gauge-metrics" nil)))
+    (remove-gauge "gauge-metrics" "1")
+    (is (= [] (list-gauges "gauge-metrics" nil)))
     )
-  (testing "List gauges with tags"
+  (testing "List and remove gauges with tags"
     (update-gauge "gauge-metrics" "2" "1" "1" #{"tag"})
     (is (= ["2"] (list-gauges "gauge-metrics" #{"tag"})))
     (is (= [] (list-gauges "gauge-metrics" #{"notag"})))
+    (remove-gauges "gauge-metrics" #{"tag"})
+    (is (= [] (list-gauges "gauge-metrics" #{"tag"})))
+    )
+  (testing "Expire gauges"
+    (update-gauge "gauge-metrics" "3" "1" "1")
+    (Thread/sleep 200)
+    (update-gauge "gauge-metrics" "4" "1" "1")
+    (Thread/sleep 100)
+    (expire-gauges "gauge-metrics" 200)
+    (is (= ["4"] (list-gauges "gauge-metrics" nil)))    
     )
   )
 
@@ -256,13 +328,25 @@
     (is (= 0 ((read-counter "counter-metrics" "1") :interval-variance)))
     (is (= 2 ((read-counter "counter-metrics" "1") :latest-interval)))
     )
-  (testing "List counters"
+  (testing "List and remove counters"
     (is (= ["1"] (list-counters "counter-metrics" nil)))
+    (remove-counter "counter-metrics" "1")
+    (is (= [] (list-counters "counter-metrics" nil)))
     )
-  (testing "List counters with tags"
+  (testing "List and remove counters with tags"
     (update-counter "counter-metrics" "2" "1" "1" #{"tag"})
     (is (= ["2"] (list-counters "counter-metrics" #{"tag"})))
     (is (= [] (list-counters "counter-metrics" #{"notag"})))
+    (remove-counters "counter-metrics" #{"tag"})
+    (is (= [] (list-counters "counter-metrics" #{"tag"})))
+    )
+  (testing "Expire counters"
+    (update-counter "counter-metrics" "3" "1" "1")
+    (Thread/sleep 200)
+    (update-counter "counter-metrics" "4" "1" "1")
+    (Thread/sleep 100)
+    (expire-counters "counter-metrics" 200)
+    (is (= ["4"] (list-counters "counter-metrics" nil)))
     )
   )
 
@@ -330,13 +414,25 @@
     (is (= 3 ((read-timer "timer-metrics" "1") :elapsed-time-average)))
     (is (= 2 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
     )
-  (testing "List timers"
+  (testing "List and remove timers"
     (is (= ["1"] (list-timers "timer-metrics" nil)))
+    (remove-timer "timer-metrics" "1")
+    (is (= [] (list-timers "timer-metrics" nil)))
     )
-  (testing "List timers with tags"
+  (testing "List and remove timers with tags"
     (update-timer "timer-metrics" "2" "1" "start" #{"tag"})
     (is (= ["2"] (list-timers "timer-metrics" #{"tag"})))
     (is (= [] (list-timers "timer-metrics" #{"notag"})))
+    (remove-timers "timer-metrics" #{"tag"})
+    (is (= [] (list-timers "timer-metrics" nil)))
+    )
+  (testing "Expire timers"
+    (update-timer "timer-metrics" "3" "1" "start")
+    (Thread/sleep 200)
+    (update-timer "timer-metrics" "4" "1" "start")
+    (Thread/sleep 100)
+    (expire-timers "timer-metrics" 200)
+    (is (= ["4"] (list-timers "timer-metrics" nil)))
     )
   )
 
