@@ -156,13 +156,11 @@
   )
 
 (defn- get-or-create-metric [metric-type metric-ns metric-id]
-  (dosync
-    (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
+  (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
+    metric
+    (let [metric (ref {:history (init-history 100) :computed-value nil :displayed-value nil :update-time nil})]
+      (alter metric-type assoc-in [metric-ns metric-id] metric)
       metric
-      (let [metric (ref {:history (init-history 100) :computed-value nil :displayed-value nil :update-time nil})]
-        (alter metric-type assoc-in [metric-ns metric-id] metric)
-        metric
-        )
       )
     )
   )
@@ -187,8 +185,8 @@
 (deftype MetricType [metric-type compute-fn]
   MetricProtocol
   (set-metric [this metric-ns metric-id timestamp value tags]
-    (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
-      (dosync
+    (dosync
+      (let [_ (ensure metric-type) metric (get-or-create-metric metric-type metric-ns metric-id)]
         (let [t (System/currentTimeMillis)
               computed (compute-fn (@metric :computed-value) metric-id timestamp value tags)
               displayed (display computed t)]
@@ -198,55 +196,61 @@
       )
     )
   (read-metric [this metric-ns metric-id]
-    (if-let [metric (get-metric metric-type metric-ns metric-id)]
-      (@metric :displayed-value)
-      nil
+    (dosync
+      (if-let [metric (get-metric metric-type metric-ns metric-id)]
+        (@metric :displayed-value)
+        nil
+        )
       )
     )
   (remove-metric [this metric-ns metric-id]
-    (when-let [metrics (@metric-type metric-ns)]
-      (dosync
+    (dosync
+      (when-let [metrics (@metric-type metric-ns)]
         (alter metric-type conj [metric-ns (dissoc metrics metric-id)])
         )
       )
     )
   (list-metrics [this metric-ns tags]
-    (if-let [metrics (@metric-type metric-ns)]
-      (if (seq tags)
-        (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics)))))
-        (apply vector (sort (keys metrics)))
+    (dosync
+      (if-let [metrics (@metric-type metric-ns)]
+        (if (seq tags)
+          (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics)))))
+          (apply vector (sort (keys metrics)))
+          )
+        []
         )
-      []
       )
     )
   (remove-metrics [this metric-ns tags]
-    (when-let [metrics (@metric-type metric-ns)]
-      (dosync
+    (dosync
+      (when-let [metrics (@metric-type metric-ns)]
         (alter metric-type conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics))])
         )
       )
     )
   (expire-metrics [this metric-ns age]
-    (when-let [metrics (@metric-type metric-ns)]
-      (dosync
+    (dosync
+      (when-let [metrics (@metric-type metric-ns)]
         (alter metric-type conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics))])
         )
       )
     )
   (read-history [this metric-ns metric-id tags]
-    (if-let [metric (get-metric metric-type metric-ns metric-id)]
-      (if (seq tags)
-        (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
-          (assoc history :size (count filtered-values) :values (apply vector filtered-values))
+    (dosync
+      (if-let [metric (get-metric metric-type metric-ns metric-id)]
+        (if (seq tags)
+          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
+            (assoc history :size (count filtered-values) :values (apply vector filtered-values))
+            )
+          (@metric :history)
           )
-        (@metric :history)
+        nil
         )
-      nil
       )
     )
   (reset-history [this metric-ns metric-id limit]
-    (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
-      (dosync
+    (dosync
+      (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
         (alter metric conj {:history (init-history limit)})
         )
       )
