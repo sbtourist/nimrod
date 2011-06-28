@@ -159,7 +159,7 @@
   (dosync
     (if-let [metric ((get @metric-type metric-ns {}) metric-id)]
       metric
-      (let [metric (ref {:history (init-history 100) :computation nil :value nil})]
+      (let [metric (ref {:history (init-history 100) :computed-value nil :displayed-value nil :update-time nil})]
         (alter metric-type assoc-in [metric-ns metric-id] metric)
         metric
         )
@@ -189,16 +189,17 @@
   (set-metric [this metric-ns metric-id timestamp value tags]
     (let [metric (get-or-create-metric metric-type metric-ns metric-id)]
       (dosync
-        (let [computed (compute-fn (@metric :computation) metric-id timestamp value tags)
-              displayed (display computed)]
-          (ref-set metric {:history (update-history (@metric :history) displayed) :computation computed :value displayed :update-time (System/currentTimeMillis)})
+        (let [t (System/currentTimeMillis)
+              computed (compute-fn (@metric :computed-value) metric-id timestamp value tags)
+              displayed (display computed t)]
+          (ref-set metric {:history (update-history (@metric :history) displayed) :computed-value computed :displayed-value displayed :update-time t})
           )
         )
       )
     )
   (read-metric [this metric-ns metric-id]
     (if-let [metric (get-metric metric-type metric-ns metric-id)]
-      (@metric :value)
+      (@metric :displayed-value)
       nil
       )
     )
@@ -212,7 +213,7 @@
   (list-metrics [this metric-ns tags]
     (if-let [metrics (@metric-type metric-ns)]
       (if (seq tags)
-        (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :value) :tags)) metrics)))))
+        (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics)))))
         (apply vector (sort (keys metrics)))
         )
       []
@@ -221,7 +222,7 @@
   (remove-metrics [this metric-ns tags]
     (when-let [metrics (@metric-type metric-ns)]
       (dosync
-        (alter metric-type conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :value) :tags))) metrics))])
+        (alter metric-type conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics))])
         )
       )
     )

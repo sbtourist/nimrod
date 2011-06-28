@@ -11,10 +11,10 @@
     )
   )
 
-(defn current-date-string []
-  (.format (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssz") (Date.))
+(defn date-string [t]
+  (.format (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssz") (Date. t))
   )
 
 (defn unrationalize [n] (if (ratio? n) (float n) n))
 
-(defn display [m] (reduce conj (sorted-map :date (current-date-string)) (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))
+(defn display [m t] (reduce conj (sorted-map :date (date-string t)) (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))
