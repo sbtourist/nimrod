@@ -179,8 +179,12 @@ And here's a log line stopping a previously started time computation:
 Elapsed time will be computed over the provided timestamps above (in the example above, the final value will be 1).
 
 
-## License
+# Feedback
 
-Copyright (C) 2011 Sergio Bossa
+Contact me on [twitter](http://twitter.com/sbtourist).
+
+# License
+
+Copyright (C) 2011 [Sergio Bossa](http://twitter.com/sbtourist)
 
 Distributed under the [Apache Software License](http://www.apache.org/licenses/LICENSE-2.0.html).
