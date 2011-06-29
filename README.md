@@ -112,6 +112,21 @@ Metric history and its depth can be reset as follows:
 
 Where *history_limit* is the new maximum number of history entries.
 
+## Clean-up
+
+Unused metrics can be cleaned up one by one by specifying their metric id:
+
+     DELETE /logs/log_id/metric_type/metric_id
+
+You can delete all metrics of a given type matching a given subset of tags:
+
+    DELETE /logs/log_id/metric_type?tags=tags_list
+
+Or, you can delete all metrics whose latest update happened before a given number of milliseconds:
+
+    DELETE /logs/log_id/metric_type?age=milliseconds
+
+
 # Metrics
 
 ## Statuses
