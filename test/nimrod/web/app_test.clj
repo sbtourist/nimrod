@@ -1,7 +1,6 @@
 (ns nimrod.web.app-test
  (:use
    [clojure.test]
-   [clojure.contrib.mock]
    [clojure.contrib.json]
    [ring.mock.request]
    [nimrod.web.app]
@@ -9,20 +8,26 @@
  )
 
 (deftest add-log
-  (expect [nimrod.log.tailer/start-tailer (has-args ["log" 1000] (times 1 (returns "1")))]
-    (is (= {:1 "log"} (read-json ((nimrod-app (request :post "/logs" {"file" "log" "interval" "1000"})) :body))))
+  (letfn [(mocked-start-tailer [log interval] (is (= "log" log)) (is (= 1000 interval)) "1")]
+    (binding [nimrod.log.tailer/start-tailer mocked-start-tailer]
+      (is (= {:1 "log"} (read-json ((nimrod-app (request :post "/logs" {"file" "log" "interval" "1000"})) :body))))
+      )
     )
   )
 
 (deftest list-logs
-  (expect [nimrod.log.tailer/list-tailers (has-args [] (times 1 (returns {"1" "log"})))]
-    (is (= {:1 "log"} (read-json ((nimrod-app (request :get "/logs")) :body))))
+  (letfn [(mocked-list-tailers [] {"1" "log"})]
+    (binding [nimrod.log.tailer/list-tailers mocked-list-tailers]
+      (is (= {:1 "log"} (read-json ((nimrod-app (request :get "/logs")) :body))))
+      )
     )
   )
 
 (deftest delete-log
-  (expect [nimrod.log.tailer/stop-tailer (has-args ["1"] (times 1))]
-    (nimrod-app (request :delete "/logs/1"))
+  (letfn [(mocked-stop-tailer [log-id] (is (= "1" log-id)))]
+    (binding [nimrod.log.tailer/stop-tailer mocked-stop-tailer]
+      (nimrod-app (request :delete "/logs/1"))
+      )
     )
   )
 
