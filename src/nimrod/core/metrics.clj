@@ -7,11 +7,11 @@
 
 ; ---
 
-(defn- compute-status [current id timestamp value tags]
-  (let [new-time (Long/parseLong timestamp) status value]
+(defn- compute-alert [current id timestamp value tags]
+  (let [new-time (Long/parseLong timestamp) alert value]
     (if-let [current current]
-      (conj current {:timestamp new-time :status status :tags tags})
-      {:id id :timestamp new-time :status status :tags tags}
+      (conj current {:timestamp new-time :alert alert :tags tags})
+      {:id id :timestamp new-time :alert alert :tags tags}
       )
     )
   )
@@ -260,7 +260,7 @@
 ; ---
 
 (defonce metric-types {
-                       :status (MetricType. (ref {}) compute-status)
+                       :alert (MetricType. (ref {}) compute-alert)
                        :gauge (MetricType. (ref {}) compute-gauge)
                        :counter (MetricType. (ref {}) compute-counter)
                        :timer (MetricType. (ref {}) compute-timer)

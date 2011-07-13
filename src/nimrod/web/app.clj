@@ -14,7 +14,7 @@
 (defonce response-headers {"Content-Type" "application/json"})
 (defonce cors-response-headers {"Content-Type" "application/json" "Access-Control-Allow-Origin" "*"})
 (defonce metrics {
-                  "statuses" :status
+                  "alerts" :alert
                   "gauges" :gauge
                   "counters" :counter
                   "timers" :timer

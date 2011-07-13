@@ -4,44 +4,44 @@
    [nimrod.core.metrics])
  )
 
-(defn- read-status [status-ns status-id]
-  (read-metric (metric-types :status) status-ns status-id)
+(defn- read-alert [alert-ns alert-id]
+  (read-metric (metric-types :alert) alert-ns alert-id)
   )
 
-(defn- update-status
-  ([status-ns status-id timestamp value]
-    (set-metric (metric-types :status) status-ns status-id timestamp value #{}))
-  ([status-ns status-id timestamp value tags]
-    (set-metric (metric-types :status) status-ns status-id timestamp value tags))
+(defn- update-alert
+  ([alert-ns alert-id timestamp value]
+    (set-metric (metric-types :alert) alert-ns alert-id timestamp value #{}))
+  ([alert-ns alert-id timestamp value tags]
+    (set-metric (metric-types :alert) alert-ns alert-id timestamp value tags))
   )
 
-(defn- list-statuses [status-ns tags]
-  (list-metrics (metric-types :status) status-ns tags)
+(defn- list-alerts [alert-ns tags]
+  (list-metrics (metric-types :alert) alert-ns tags)
   )
 
-(defn- remove-status [status-ns status-id]
-  (remove-metric (metric-types :status) status-ns status-id)
+(defn- remove-alert [alert-ns alert-id]
+  (remove-metric (metric-types :alert) alert-ns alert-id)
   )
 
-(defn- remove-statuses [status-ns tags]
-  (remove-metrics (metric-types :status) status-ns tags)
+(defn- remove-alerts [alert-ns tags]
+  (remove-metrics (metric-types :alert) alert-ns tags)
   )
 
-(defn- expire-statuses [status-ns age]
-  (expire-metrics (metric-types :status) status-ns age)
+(defn- expire-alerts [alert-ns age]
+  (expire-metrics (metric-types :alert) alert-ns age)
   )
 
-(defn- read-status-history
-  ([status-ns status-id]
-    ((read-history (metric-types :status) status-ns status-id nil) :values)
+(defn- read-alert-history
+  ([alert-ns alert-id]
+    ((read-history (metric-types :alert) alert-ns alert-id nil) :values)
     )
-  ([status-ns status-id tags]
-    ((read-history (metric-types :status) status-ns status-id tags) :values)
+  ([alert-ns alert-id tags]
+    ((read-history (metric-types :alert) alert-ns alert-id tags) :values)
     )
   )
 
-(defn- reset-status-history [status-ns status-id limit]
-  (reset-history (metric-types :status) status-ns status-id limit)
+(defn- reset-alert-history [alert-ns alert-id limit]
+  (reset-history (metric-types :alert) alert-ns alert-id limit)
   )
 
 (defn- read-gauge [gauge-ns gauge-id]
@@ -164,67 +164,67 @@
   (reset-history (metric-types :timer) timer-ns timer-id limit)
   )
 
-(deftest status-metrics
-  (testing "Null status"
-    (is (nil? (read-status "status-metrics" "1")))
+(deftest alert-metrics
+  (testing "Null staalerttus"
+    (is (nil? (read-alert "alert-metrics" "1")))
     )
-  (testing "Initial status value"
-    (update-status "status-metrics" "1" "1" "v1")
-    (is (not (nil? (read-status "status-metrics" "1"))))
-    (is (= 1 ((read-status "status-metrics" "1") :timestamp)))
-    (is (= "v1" ((read-status "status-metrics" "1") :status)))
+  (testing "Initial alert value"
+    (update-alert "alert-metrics" "1" "1" "v1")
+    (is (not (nil? (read-alert "alert-metrics" "1"))))
+    (is (= 1 ((read-alert "alert-metrics" "1") :timestamp)))
+    (is (= "v1" ((read-alert "alert-metrics" "1") :alert)))
     )
-  (testing "Updated status value"
-    (update-status "status-metrics" "1" "2" "v2")
-    (is (not (nil? (read-status "status-metrics" "1"))))
-    (is (= 2 ((read-status "status-metrics" "1") :timestamp)))
-    (is (= "v2" ((read-status "status-metrics" "1") :status)))
+  (testing "Updated alert value"
+    (update-alert "alert-metrics" "1" "2" "v2")
+    (is (not (nil? (read-alert "alert-metrics" "1"))))
+    (is (= 2 ((read-alert "alert-metrics" "1") :timestamp)))
+    (is (= "v2" ((read-alert "alert-metrics" "1") :alert)))
     )
-  (testing "List and remove statuses"
-    (is (= ["1"] (list-statuses "status-metrics" nil)))
-    (remove-status "status-metrics" "1")
-    (is (= [] (list-statuses "status-metrics" nil)))
+  (testing "List and remove alerts"
+    (is (= ["1"] (list-alerts "alert-metrics" nil)))
+    (remove-alert "alert-metrics" "1")
+    (is (= [] (list-alerts "alert-metrics" nil)))
     )
-  (testing "List and remove statuses with tags"
-    (update-status "status-metrics" "2" "3" "v3" #{"tag"})
-    (is (= ["2"] (list-statuses "status-metrics" #{"tag"})))
-    (is (= [] (list-statuses "status-metrics" #{"notag"})))
-    (remove-statuses "status-metrics" #{"tag"})
-    (is (= [] (list-statuses "status-metrics" #{"tag"})))
+  (testing "List and remove alerts with tags"
+    (update-alert "alert-metrics" "2" "3" "v3" #{"tag"})
+    (is (= ["2"] (list-alerts "alert-metrics" #{"tag"})))
+    (is (= [] (list-alerts "alert-metrics" #{"notag"})))
+    (remove-alerts "alert-metrics" #{"tag"})
+    (is (= [] (list-alerts "alert-metrics" #{"tag"})))
     )
-  (testing "Expire statuses"
-    (update-status "status-metrics" "3" "4" "v4")
+  (testing "Expire alerts"
+    (update-alert "alert-metrics" "3" "4" "v4")
     (Thread/sleep 200)
-    (update-status "status-metrics" "4" "5" "v5")
+    (update-alert "alert-metrics" "4" "5" "v5")
     (Thread/sleep 100)
-    (expire-statuses "status-metrics" 200)
-    (is (= ["4"] (list-statuses "status-metrics" nil)))
+    (expire-alerts "alert-metrics" 200)
+    (is (= ["4"] (list-alerts "alert-metrics" nil)))
     )
   )
 
-(deftest status-history
-  (testing "Reset status history"
-    (reset-status-history "status-history" "1" 2)
+(deftest alert-history
+  (testing "Reset alert history"
+    (reset-alert-history "alert-history" "1" 2)
     )
-  (testing "Status history under limit"
-    (update-status "status-history" "1" "1" "v1")
-    (update-status "status-history" "1" "2" "v2")
-    (is (= 1 ((first (read-status-history "status-history" "1")) :timestamp)))
-    (is (= 2 ((second (read-status-history "status-history" "1")) :timestamp)))
+  (testing "Alert history under limit"
+    (update-alert "alert-history" "1" "1" "v1")
+    (update-alert "alert-history" "1" "2" "v2")
+    (is (= 1 ((first (read-alert-history "alert-history" "1")) :timestamp)))
+    (is (= 2 ((second (read-alert-history "alert-history" "1")) :timestamp)))
     )
-  (testing "Status history over limit"
-    (update-status "status-history" "1" "3" "v3")
-    (is (= 2 ((first (read-status-history "status-history" "1")) :timestamp)))
-    (is (= 3 ((second (read-status-history "status-history" "1")) :timestamp)))
+  (testing "Alert history over limit"
+    (update-alert "alert-history" "1" "3" "v3")
+    (is (= 2 ((first (read-alert-history "alert-history" "1")) :timestamp)))
+    (is (= 3 ((second (read-alert-history "alert-history" "1")) :timestamp)))
     )
   )
 
-(deftest status-history-with-tags
-  (testing "Status history with tags"
-    (update-status "status-history-with-tags" "1" "1" "v1" #{"tag1", "tag2"})
-    (update-status "status-history-with-tags" "1" "2" "v2" #{"tag3"})
-    (is (= 1 (count (read-status-history "status-history-with-tags" "1" #{"tag1", "tag2"}))))
-    (is (= 1 ((first (read-status-history "status-history-with-tags" "1" #{"tag1", "tag2"})) :timestamp)))
+(deftest alert-history-with-tags
+  (testing "Alert history with tags"
+    (update-alert "alert-history-with-tags" "1" "1" "v1" #{"tag1", "tag2"})
+    (update-alert "alert-history-with-tags" "1" "2" "v2" #{"tag3"})
+    (is (= 1 (count (read-alert-history "alert-history-with-tags" "1" #{"tag1", "tag2"}))))
+    (is (= 1 ((first (read-alert-history "alert-history-with-tags" "1" #{"tag1", "tag2"})) :timestamp)))
     )
   )
 

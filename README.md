@@ -57,25 +57,25 @@ Then, start logging your metrics in the Nimrod-specific format, providing the fo
 * The **nimrod** fixed string.
 * The metric **timestamp** (mostly in milliseconds, but could really be your preferred measure of time).
 * The metric **type**, among one of:
- * *statuses*
- * *gauges*
- * *counters*
- * *timers*
+ * *alert*
+ * *gauge*
+ * *counter*
+ * *timer*
 * The metric **identifier** for the specified type.
 * The metric **value**.
 * An optional comma-separated list of metric **tags**.
 
 Here's an example, without tags:
 
-    [nimrod][123456789][counters][players][100]
+    [nimrod][123456789][counter][players][100]
 
 But you can also interleave whatever you want between Nimrod-specific values, in order to make your logs more human-friendly:
 
-    [nimrod][123456789][counters] - Current number of [players] is: [100]
+    [nimrod][123456789][counter] - Current number of [players] is: [100]
 
 And with tags:
 
-    [nimrod][123456789][counters][players][100][game_code:123]
+    [nimrod][123456789][counter][players][100][game_code:123]
 
 ## Query
 
@@ -83,8 +83,8 @@ Nimrod metrics for a given log and metric type can be queried with the following
 
     GET /logs/log_id/metric_type
 
-Where *log_id* is the log identifier as provided by Nimrod after log registration and *metric_type* is the name of the metric type as specified above
-(again, either *statuses*, *gauges*, *counters* or *timers*).
+Where *log_id* is the log identifier as provided by Nimrod after log registration and *metric_type* is the name of the metric type in plural form, that is either:
+*alerts*, *gauges*, *counters* or *timers*.
 
 Optionally, you can also pass a list of tags to narrow down and return only those metrics (for the given type) "marked" with a given set of tags:
 
@@ -129,13 +129,13 @@ Or, you can delete all metrics whose latest update happened before a given numbe
 
 # Metrics
 
-## Statuses
+## Alerts
 
-String values representing a generic value at a given time.
+String values representing a generic message at a given time.
 
-Here's a log line representing a status value:
+Here's a log line representing an alert value:
 
-    [nimrod][123456789][statuses][current_player][sergio]
+    [nimrod][123456789][alert][top_player][sergio]
 
 ## Gauges
 
@@ -147,7 +147,7 @@ It also provides the following statistical information:
 
 Here's a log line representing a status value:
 
-    [nimrod][123456789][gauges][current_players][100]
+    [nimrod][123456789][gauge][current_players][100]
 
 ## Counters
 
@@ -159,7 +159,7 @@ It also provides the following statistical information:
 
 Here's a log line representing a status value:
 
-    [nimrod][123456789][counters][total_players][100]
+    [nimrod][123456789][counter][total_players][100]
 
 ## Timers
 
@@ -170,11 +170,11 @@ It also provides the following statistical information:
 
 Here's a log line starting a time computation:
 
-    [nimrod][123456788][timers][login][start]
+    [nimrod][123456788][timer][login][start]
 
 And here's a log line stopping a previously started time computation:
 
-    [nimrod][123456789][timers][login][stop]
+    [nimrod][123456789][timer][login][stop]
 
 Elapsed time will be computed over the provided timestamps above (in the example above, the final value will be 1).
 
