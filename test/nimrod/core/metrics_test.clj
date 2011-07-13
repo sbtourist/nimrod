@@ -169,16 +169,20 @@
     (is (nil? (read-alert "alert-metrics" "1")))
     )
   (testing "Initial alert value"
-    (update-alert "alert-metrics" "1" "1" "v1")
-    (is (not (nil? (read-alert "alert-metrics" "1"))))
-    (is (= 1 ((read-alert "alert-metrics" "1") :timestamp)))
-    (is (= "v1" ((read-alert "alert-metrics" "1") :alert)))
-    )
-  (testing "Updated alert value"
-    (update-alert "alert-metrics" "1" "2" "v2")
+    (update-alert "alert-metrics" "1" "2" "v1")
     (is (not (nil? (read-alert "alert-metrics" "1"))))
     (is (= 2 ((read-alert "alert-metrics" "1") :timestamp)))
+    (is (= "v1" ((read-alert "alert-metrics" "1") :alert)))
+    (is (= 0 ((read-alert "alert-metrics" "1") :interval-average)))
+    (is (= 0 ((read-alert "alert-metrics" "1") :interval-variance)))
+    )
+  (testing "Updated alert value"
+    (update-alert "alert-metrics" "1" "4" "v2")
+    (is (not (nil? (read-alert "alert-metrics" "1"))))
+    (is (= 4 ((read-alert "alert-metrics" "1") :timestamp)))
     (is (= "v2" ((read-alert "alert-metrics" "1") :alert)))
+    (is (= 2 ((read-alert "alert-metrics" "1") :interval-average)))
+    (is (= 0 ((read-alert "alert-metrics" "1") :interval-variance)))
     )
   (testing "List and remove alerts"
     (is (= ["1"] (list-alerts "alert-metrics" nil)))

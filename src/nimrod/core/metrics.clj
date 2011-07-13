@@ -10,8 +10,28 @@
 (defn- compute-alert [current id timestamp value tags]
   (let [new-time (Long/parseLong timestamp) alert value]
     (if-let [current current]
-      (conj current {:timestamp new-time :alert alert :tags tags})
-      {:id id :timestamp new-time :alert alert :tags tags}
+      (let [previous-time (current :timestamp)
+            previous-interval-average (current :interval-average)
+            previous-interval-variance (current :interval-variance)
+            interval (- new-time previous-time)
+            samples (inc (current :samples))
+            interval-average (average (dec samples) previous-interval-average interval)
+            interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
+            ]
+        (conj current {:timestamp new-time
+                       :alert alert
+                       :samples samples
+                       :interval-average interval-average
+                       :interval-variance interval-variance
+                       :tags tags})
+        )
+      {:id id 
+       :timestamp new-time
+       :samples 1
+       :interval-average 0
+       :interval-variance 0
+       :alert alert
+       :tags tags}
       )
     )
   )
