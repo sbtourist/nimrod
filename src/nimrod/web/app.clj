@@ -13,6 +13,16 @@
 (defonce response-codes {:ok 200 :no-content 204 :not-found 404 :error 500})
 (defonce response-headers {"Content-Type" "application/json"})
 (defonce cors-response-headers {"Content-Type" "application/json" "Access-Control-Allow-Origin" "*"})
+(defonce metrics {
+                  "statuses" :status
+                  "gauges" :gauge
+                  "counters" :counter
+                  "timers" :timer
+                  })
+
+(defn- extract [metric-type]
+  (metrics metric-type)
+  )
 
 (defn- cors-response 
   ([status body]
@@ -50,7 +60,7 @@
 (http/defroutes nimrod-routes
 
   (http/POST "/logs" [file interval]
-    (let [tailer (start-tailer file (Long/parseLong interval))]
+    (let [tailer (start-tailer file (Long/parseLong (or interval "1000")))]
       (response :ok {tailer file})
       )
     )
@@ -63,7 +73,7 @@
     )
 
   (http/GET ["/logs/:log-id/:metric-type" :tags #"[^/?#]+"] [log-id metric-type tags]
-    (if-let [metric (metric-types (keyword metric-type))]
+    (if-let [metric (metric-types (extract metric-type))]
       (if-let [result (list-metrics metric log-id (extract-tags tags))]
         (cors-response :ok result)
         (cors-response :not-found)
@@ -72,9 +82,12 @@
       )
     )
   (http/DELETE ["/logs/:log-id/:metric-type" :age #"\d+" :tags #"[^/?#]+"] [log-id metric-type age tags]
-    (if-let [metric (metric-types (keyword metric-type))]
+    (if-let [metric (metric-types (extract metric-type))]
       (do
-        (if (not (nil? age)) (expire-metrics metric log-id (Long/parseLong age)) (remove-metrics metric log-id (extract-tags tags)))
+        (if (not (nil? age))
+          (expire-metrics metric log-id (Long/parseLong age))
+          (remove-metrics metric log-id (extract-tags tags))
+          )
         (response :no-content)
         )
       (response :error {:error (str "Bad metric type: " metric-type)})
@@ -82,7 +95,7 @@
     )
 
   (http/GET ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-    (if-let [metric (metric-types (keyword metric-type))]
+    (if-let [metric (metric-types (extract metric-type))]
       (if-let [result (read-metric metric log-id metric-id)]
         (cors-response :ok result)
         (cors-response :not-found)
@@ -91,7 +104,7 @@
       )
     )
   (http/DELETE ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-    (if-let [metric (metric-types (keyword metric-type))]
+    (if-let [metric (metric-types (extract metric-type))]
       (do
         (remove-metric metric log-id metric-id)
         (response :no-content)
@@ -101,7 +114,7 @@
     )
 
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id limit]
-    (if-let [metric (metric-types (keyword metric-type))]
+    (if-let [metric (metric-types (extract metric-type))]
       (do 
         (reset-history metric log-id metric-id (Long/parseLong limit))
         (response :no-content)
@@ -110,7 +123,7 @@
       )
     )
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] [log-id metric-type metric-id tags]
-    (if-let [metric (metric-types (keyword metric-type))]
+    (if-let [metric (metric-types (extract metric-type))]
       (if-let [result (read-history metric log-id metric-id (extract-tags tags))]
         (cors-response :ok result)
         (cors-response :not-found)

@@ -260,8 +260,8 @@
 ; ---
 
 (defonce metric-types {
-                       :statuses (MetricType. (ref {}) compute-status)
-                       :gauges (MetricType. (ref {}) compute-gauge)
-                       :counters (MetricType. (ref {}) compute-counter)
-                       :timers (MetricType. (ref {}) compute-timer)
+                       :status (MetricType. (ref {}) compute-status)
+                       :gauge (MetricType. (ref {}) compute-gauge)
+                       :counter (MetricType. (ref {}) compute-counter)
+                       :timer (MetricType. (ref {}) compute-timer)
                        })
