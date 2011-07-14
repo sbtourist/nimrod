@@ -9,6 +9,6 @@
                 [log4j/log4j "1.2.16" :exclusions [javax.mail/mail javax.jms/jms com.sun.jdmk/jmxtools com.sun.jmx/jmxri]]
                 ]
  :dev-dependencies [[ring-mock "0.1.1"]]
+ :java-source-path "src"
  :aot [nimrod.web.startup]
- ;jvm-opts ["-agentlib:jdwp=transport=dt_socket,address=9000,server=y,suspend=n"]
  )

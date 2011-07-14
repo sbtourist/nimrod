@@ -5,7 +5,8 @@
    [nimrod.core.util]
    [nimrod.log.processor])
  (:import
-   [org.apache.commons.io.input Tailer TailerListenerAdapter])
+   [nimrod.org.apache.commons.io.input Tailer]
+   [org.apache.commons.io.input TailerListenerAdapter])
  (:refer-clojure :exclude [spit])
  )
 
