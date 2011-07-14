@@ -55,7 +55,7 @@ You can query for registered logs too:
 Then, start logging your metrics in the Nimrod-specific format, providing the following information in square brackets:
 
 * The **nimrod** fixed string.
-* The metric **timestamp** (mostly in milliseconds, but could really be your preferred measure of time).
+* The metric **timestamp** (generally in milliseconds, but can really be your preferred measure of time, provided it is always incrementing).
 * The metric **type**, among one of:
  * *alert*
  * *gauge*
