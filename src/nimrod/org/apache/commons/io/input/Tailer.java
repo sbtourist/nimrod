@@ -26,8 +26,6 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.TailerListener;
 import org.apache.commons.io.input.TailerListenerAdapter;
 
-// WARN: (ALMOST) COPIED FROM TRUNK TO FIX BUG: http://issues.apache.org/jira/browse/IO-274
-
 /**
  * Simple implementation of the unix "tail -f" functionality.
  * <p>
@@ -56,6 +54,7 @@ import org.apache.commons.io.input.TailerListenerAdapter;
  *       <li>{@link Tailer#create(File, TailerListener)}</li>
  *       <li>{@link Tailer#create(File, TailerListener, long)}</li>
  *       <li>{@link Tailer#create(File, TailerListener, long, boolean)}</li>
+ *       <li>{@link Tailer#create(File, TailerListener, long, boolean, int)}</li>
  *     </ul>
  *   </li>
  *   <li>Using an {@link java.util.concurrent.Executor}</li>
@@ -105,7 +104,7 @@ import org.apache.commons.io.input.TailerListenerAdapter;
  *
  * @see TailerListener
  * @see TailerListenerAdapter
- * @version $Id$
+ * @version $Id: Tailer.java 1127854 2011-05-26 10:03:42Z sebb $
  * @since Commons IO 2.0
  */
 public class Tailer implements Runnable {
@@ -114,26 +113,34 @@ public class Tailer implements Runnable {
      * The file which will be tailed.
      */
     private final File file;
-
     /**
      * The amount of time to wait for the file to be updated.
      */
     private final long delay;
-
     /**
      * Whether to tail from the end or start of file
      */
     private final boolean end;
-
     /**
      * The listener to notify of events when tailing.
      */
     private final TailerListener listener;
-
     /**
      * The tailer will run as long as this value is true.
      */
     private volatile boolean run = true;
+    /**
+     * The "truncated" line from buffered reads (when buffer ends prior to reaching eol or eof).
+     */
+    private volatile String remaind = "";
+    /**
+     * The buffer size for buffered reads.
+     */
+    private final int bufferSize;
+    /**
+     * The recycled buffer for buffered reads.
+     */
+    private final byte[] buffer;
 
     /**
      * Creates a Tailer for the given file, starting from the beginning, with the default delay of 1.0s.
@@ -151,7 +158,7 @@ public class Tailer implements Runnable {
      * @param delay the delay between checks of the file for new content in milliseconds.
      */
     public Tailer(File file, TailerListener listener, long delay) {
-        this(file, listener, 1000, false);
+        this(file, listener, delay, false);
     }
 
     /**
@@ -162,16 +169,47 @@ public class Tailer implements Runnable {
      * @param end Set to true to tail from the end of the file, false to tail from the beginning of the file.
      */
     public Tailer(File file, TailerListener listener, long delay, boolean end) {
+        this(file, listener, delay, end, 1024);
+    }
 
+    /**
+     * Creates a Tailer for the given file, with a delay other than the default 1.0s.
+     * @param file the file to follow.
+     * @param listener the TailerListener to use.
+     * @param delay the delay between checks of the file for new content in milliseconds.
+     * @param end Set to true to tail from the end of the file, false to tail from the beginning of the file.
+     * @param bufferSize Buffer size for buffered reads from the tailed file.
+     */
+    public Tailer(File file, TailerListener listener, long delay, boolean end, int bufferSize) {
         this.file = file;
         this.delay = delay;
         this.end = end;
 
+        this.bufferSize = bufferSize;
+        this.buffer = new byte[bufferSize];
+
         // Save and prepare the listener
         this.listener = listener;
         
-        // No need to call this for us:
-        //listener.init(this);
+        // NOT NEEDED IN NIMROD: listener.init(this);
+    }
+
+    /**
+     * Creates and starts a Tailer for the given file.
+     *
+     * @param file the file to follow.
+     * @param listener the TailerListener to use.
+     * @param delay the delay between checks of the file for new content in milliseconds.
+     * @param end Set to true to tail from the end of the file, false to tail from the beginning of the file.
+     * @param bufferSize Buffer size for buffered reads from the tailed file.
+     * @return The new tailer
+     */
+    public static Tailer create(File file, TailerListener listener, long delay, boolean end, int bufferSize) {
+        Tailer tailer = new Tailer(file, listener, delay, end, bufferSize);
+        Thread thread = new Thread(tailer);
+        thread.setDaemon(true);
+        thread.start();
+        return tailer;
     }
 
     /**
@@ -184,11 +222,7 @@ public class Tailer implements Runnable {
      * @return The new tailer
      */
     public static Tailer create(File file, TailerListener listener, long delay, boolean end) {
-        Tailer tailer = new Tailer(file, listener, delay, end);
-        Thread thread = new Thread(tailer);
-        thread.setDaemon(true);
-        thread.start();
-        return tailer;
+        return create(file, listener, delay, end, 1024);
     }
 
     /**
@@ -200,7 +234,7 @@ public class Tailer implements Runnable {
      * @return The new tailer
      */
     public static Tailer create(File file, TailerListener listener, long delay) {
-        return create(file, listener, delay, false);
+        return create(file, listener, delay, false, 1024);
     }
 
     /**
@@ -212,7 +246,7 @@ public class Tailer implements Runnable {
      * @return The new tailer
      */
     public static Tailer create(File file, TailerListener listener) {
-        return create(file, listener, 1000, false);
+        return create(file, listener, 1000, false, 1024);
     }
 
     /**
@@ -341,42 +375,72 @@ public class Tailer implements Runnable {
      * @throws java.io.IOException if an I/O error occurs.
      */
     private long readLines(RandomAccessFile reader) throws IOException {
-        long pos = reader.getFilePointer();
-        String line = readLine(reader);
-        while (line != null) {
-            pos = reader.getFilePointer();
-            listener.handle(line);
-            line = readLine(reader);
+        int read = reader.read(buffer);
+        boolean eof = read < bufferSize;
+        readLinesFromBuffer(read);
+        while (!eof) {
+            read = reader.read(buffer);
+            eof = read < bufferSize;
+            readLinesFromBuffer(read);
         }
-        reader.seek(pos); // Ensure we can re-read if necessary
-        return pos;
+        return reader.getFilePointer();
     }
 
     /**
-     * Version of readline() that returns null on EOF rather than a partial line.
-     * @param reader the input file
-     * @return the line, or null if EOF reached before '\n' is seen.
-     * @throws IOException if an error occurs.
+     * Read lines from the buffer of given size.
+     *
+     * @param size The buffer size.
+     * @throws java.io.IOException if an I/O error occurs.
      */
-    private String readLine(RandomAccessFile reader) throws IOException {
-        StringBuffer sb  = new StringBuffer();
-        int ch;
+    private void readLinesFromBuffer(int size) throws IOException {
+        int read = readLineFromBuffer(0, size);
+        int pos = read;
+        while (pos < size) {
+            read = readLineFromBuffer(pos, size);
+            pos += read;
+        }
+    }
+
+    /**
+     * Version of readline() that reads from the buffer and returns null on EOF rather than a partial line.
+     *
+     * @param start the buffer starting index.
+     * @param size The buffer size.
+     * @return Number of bytes read.
+     * @throws java.io.IOException if an I/O error occurs.
+     */
+    private int readLineFromBuffer(int start, int size) throws IOException {
+        StringBuilder builder = new StringBuilder(remaind);
+        int read = 0;
+        int current = start;
+        int ch = 0;
+        boolean eol = false;
         boolean seenCR = false;
-        while((ch=reader.read()) != -1) {
-            switch(ch) {
+        while (current < size && !eol) {
+            ch = buffer[current++];
+            read++;
+            switch (ch) {
                 case '\n':
-                    return sb.toString();
+                    eol = true;
+                    break;
                 case '\r':
                     seenCR = true;
                     break;
                 default:
                     if (seenCR) {
-                        sb.append('\r');
+                        builder.append('\r');
                         seenCR = false;
                     }
-                    sb.append((char)ch); // add character, not its ascii value
+                    builder.append((char) ch); // add character, not its ascii value
             }
         }
-        return null;
+        if (!eol) {
+            remaind = builder.toString();
+        } else {
+            remaind = "";
+            listener.handle(builder.toString());
+        }
+        return read;
     }
+
 }
