@@ -10,6 +10,7 @@
  (:refer-clojure :exclude [spit])
  )
 
+(defonce tailer-buffer-size 4096)
 (defonce tailers (ref {}))
 (defonce tailers-sequence (atom 0))
 
@@ -23,6 +24,7 @@
       )
     interval
     true
+    tailer-buffer-size
     )
   )
 
