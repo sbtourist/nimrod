@@ -323,27 +323,9 @@ public class Tailer implements Runnable {
                 } else {
 
                     // File was not rotated
-
-                    // See if the file needs to be read again
-                    if (length > position) {
-
-                        // The file has more content than it did last time
-                        last = System.currentTimeMillis();
-                        position = readLines(reader);
-
-                    } else if (FileUtils.isFileNewer(file, last)) {
-
-                        /* This can happen if the file is truncated or overwritten
-                         * with the exact same length of information. In cases like
-                         * this, the file position needs to be reset
-                         */
-                        position = 0;
-                        reader.seek(position); // cannot be null here
-
-                        // Now we can read new lines
-                        last = System.currentTimeMillis();
-                        position = readLines(reader);
-                    }
+                    // The file has more content than it did last time
+                    last = System.currentTimeMillis();
+                    position = readLines(reader);
                 }
                 try {
                     Thread.sleep(delay);
