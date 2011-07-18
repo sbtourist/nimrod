@@ -132,6 +132,9 @@ Or, you can delete all metrics whose latest update happened before a given numbe
 ## Alerts
 
 String values representing a generic message at a given time.
+It also provides the following statistical information:
+
+* Average and variance of time intervals between alert updates.
 
 Here's a log line representing an alert value:
 
@@ -145,7 +148,7 @@ It also provides the following statistical information:
 * Average and variance of time intervals between measure updates.
 * Average and variance of the measure.
 
-Here's a log line representing a status value:
+Here's a log line representing a gauge value:
 
     [nimrod][123456789][gauge][current_players][100]
 
@@ -157,7 +160,7 @@ It also provides the following statistical information:
 * Average and variance of time intervals between counter updates.
 * Average and variance of the counter increment.
 
-Here's a log line representing a status value:
+Here's a log line representing a counter value:
 
     [nimrod][123456789][counter][total_players][100]
 
