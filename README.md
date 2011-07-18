@@ -31,7 +31,7 @@ It is as easy as:
 
 Once you have built the Nimrod jar, you can easily start it as follows (replace 8000 with you port of choice):
 
-    $> java -cp nimrod-0.1-SNAPSHOT-standalone.jar nimrod.web.startup 8000
+    $> java -cp nimrod-version-standalone.jar nimrod.web.startup 8000
 
 This will start the Nimrod server and log processing.
 
