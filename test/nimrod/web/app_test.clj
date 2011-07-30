@@ -19,6 +19,7 @@
   (letfn [(mocked-list-tailers [] {"1" "log"})]
     (binding [nimrod.log.tailer/list-tailers mocked-list-tailers]
       (is (= {:1 "log"} (read-json ((nimrod-app (request :get "/logs")) :body))))
+      (is (= "/logs" (((nimrod-app (request :get "/logs/")) :headers) "Location")))
       )
     )
   )
@@ -35,6 +36,16 @@
   (let [gauge (reify nimrod.core.metrics.MetricProtocol (list-metrics [this log-id tags] (is (= "1" log-id)) ["gauge1"]))]
     (binding [nimrod.core.metrics/metric-types {:gauge gauge}]
       (is (= ["gauge1"] (read-json ((nimrod-app (request :get "/logs/1/gauges")) :body))))
+      (is (= "/logs/1/gauges" (((nimrod-app (request :get "/logs/1/gauges/")) :headers) "Location")))
+      )
+    )
+  )
+
+(deftest list-metrics-for-type-by-tags
+  (let [gauge (reify nimrod.core.metrics.MetricProtocol (list-metrics [this log-id tags] (is (= "1" log-id)) (is (= #{"tag1"} tags)) ["gauge1"]))]
+    (binding [nimrod.core.metrics/metric-types {:gauge gauge}]
+      (is (= ["gauge1"] (read-json ((nimrod-app (request :get "/logs/1/gauges" {:tags "tag1"})) :body))))
+      (is (= "/logs/1/gauges" (((nimrod-app (request :get "/logs/1/gauges/" {:tags "tag1"})) :headers) "Location")))
       )
     )
   )

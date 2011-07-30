@@ -6,6 +6,7 @@
    [compojure.core :as http]
    [compojure.route :as route]
    [compojure.handler :as handler]
+   [ring.util.response :as response]
    [nimrod.core.metrics]
    [nimrod.log.tailer])
  )
@@ -26,6 +27,10 @@
 
 (defn- extract-tags [tags]
   (when (seq tags) (into #{} (string/split tags #",")))
+  )
+
+(defn- drop-last-char [s]
+  (apply str (drop-last (seq s)))
   )
 
 (defn- std-response
@@ -49,6 +54,10 @@
     )
   )
 
+(defn- redirect-response [url]
+    (response/redirect url)
+  )
+
 (defn- wrap-errors [handler]
   (fn [req]
     (try
@@ -70,6 +79,9 @@
   (http/GET "/logs" []
     (cors-response :ok (list-tailers))
     )
+  (http/GET "/logs/" [:as request]
+    (redirect-response (drop-last-char (request :uri)))
+    )
   (http/DELETE "/logs/:log-id" [log-id]
     (stop-tailer log-id)
     (std-response :no-content)
@@ -83,6 +95,9 @@
         )
       (cors-response :error {:error (str "Bad metric type: " metric-type)})
       )
+    )
+  (http/GET ["/logs/:log-id/:metric-type/"] [log-id metric-type :as request]
+    (redirect-response (drop-last-char (request :uri)))
     )
   (http/DELETE ["/logs/:log-id/:metric-type" :age #"\d+" :tags #"[^/?#]+"] [log-id metric-type age tags]
     (if-let [metric (metric-types (convert-type metric-type))]
