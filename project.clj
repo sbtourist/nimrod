@@ -3,8 +3,9 @@
  :dependencies [
                 [org.clojure/clojure "1.2.1"]
                 [org.clojure/clojure-contrib "1.2.0"]
-                [compojure "0.6.3"]
-                [ring/ring-jetty-adapter "0.3.8"]
+                [compojure "0.6.5"]
+                [ring/ring-core "0.3.11"]
+                [ring/ring-jetty-adapter "0.3.11"]
                 [commons-io/commons-io "2.0.1"]
                 [log4j/log4j "1.2.16" :exclusions [javax.mail/mail javax.jms/jms com.sun.jdmk/jmxtools com.sun.jmx/jmxri]]
                 ]
