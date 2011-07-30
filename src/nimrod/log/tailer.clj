@@ -2,7 +2,6 @@
  (:use
    [clojure.contrib.io :as io]
    [clojure.contrib.logging :as log]
-   [nimrod.core.util]
    [nimrod.log.processor])
  (:import
    [nimrod.org.apache.commons.io.input Tailer]
@@ -30,7 +29,7 @@
 
 (defn start-tailer [log interval]
   (dosync
-    (let [id (Long/toString (swap! tailers-sequence inc)) tailer (new-agent (create-tailer id log interval))]
+    (let [id (Long/toString (swap! tailers-sequence inc)) tailer (create-tailer id log interval)]
       (log/info (str "Start listening to log: " log))
       (alter tailers assoc id {:log log :tailer tailer})
       id
@@ -39,13 +38,19 @@
   )
 
 (defn stop-tailer [id]
-  (dosync
-    (if-let [tailer (get @tailers id)]
-      (do
-        (alter tailers dissoc id)
-        (send-off (tailer :tailer) #(.stop %1))
+  (let [tailer (ref nil)]
+    (dosync
+      (if (@tailers id)
+        (do
+          (ref-set tailer (@tailers id))
+          (alter tailers dissoc id)
+          )
+        (throw (IllegalStateException. (str "No tailer for id: " id)))
         )
-      (throw (IllegalStateException. (str "No tailer for id: " id)))
+      )
+    (if @tailer
+      (.stop (@tailer :tailer))
+      (log/info (str "Stop listening to log: " (@tailer :log)))
       )
     )
   )
