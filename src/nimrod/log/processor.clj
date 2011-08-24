@@ -30,10 +30,13 @@
   )
 
 (defn process [log line]
-  (if-let [extracted (extract line)]
-    (if-let [metrics (store (keyword (extracted :metric)))]
-      (set-metric metrics log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
-      (log/warn (str "No metric with name: " (extracted :metric)))
+  (try
+    (if-let [extracted (extract line)]
+      (if-let [metrics (store (keyword (extracted :metric)))]
+        (set-metric metrics log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
+        (log/warn (str "No metric with name: " (extracted :metric)))
+        )
       )
+    (catch Exception ex (log/error (.getMessage ex) ex))
     )
   )
