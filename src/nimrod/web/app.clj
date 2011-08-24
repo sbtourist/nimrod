@@ -14,12 +14,6 @@
 (defonce response-codes {:ok 200 :no-content 204 :not-found 404 :error 500})
 (defonce std-response-headers {"Content-Type" "application/json"})
 (defonce cors-response-headers {"Content-Type" "application/json" "Access-Control-Allow-Origin" "*"})
-(defonce metrics {
-                  "alerts" :alert
-                  "gauges" :gauge
-                  "counters" :counter
-                  "timers" :timer
-                  })
 
 (defn- extract-tags [tags]
   (when (seq tags) (into #{} (string/split tags #",")))
