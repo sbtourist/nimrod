@@ -5,163 +5,163 @@
  )
 
 (defn- read-alert [alert-ns alert-id]
-  (read-metric (metric-types :alert) alert-ns alert-id)
+  (read-metric (store :alerts) alert-ns alert-id)
   )
 
 (defn- update-alert
   ([alert-ns alert-id timestamp value]
-    (set-metric (metric-types :alert) alert-ns alert-id timestamp value #{}))
+    (set-metric (store :alerts) alert-ns alert-id timestamp value #{}))
   ([alert-ns alert-id timestamp value tags]
-    (set-metric (metric-types :alert) alert-ns alert-id timestamp value tags))
+    (set-metric (store :alerts) alert-ns alert-id timestamp value tags))
   )
 
 (defn- list-alerts [alert-ns tags]
-  (list-metrics (metric-types :alert) alert-ns tags)
+  (list-metrics (store :alerts) alert-ns tags)
   )
 
 (defn- remove-alert [alert-ns alert-id]
-  (remove-metric (metric-types :alert) alert-ns alert-id)
+  (remove-metric (store :alerts) alert-ns alert-id)
   )
 
 (defn- remove-alerts [alert-ns tags]
-  (remove-metrics (metric-types :alert) alert-ns tags)
+  (remove-metrics (store :alerts) alert-ns tags)
   )
 
 (defn- expire-alerts [alert-ns age]
-  (expire-metrics (metric-types :alert) alert-ns age)
+  (expire-metrics (store :alerts) alert-ns age)
   )
 
 (defn- read-alert-history
   ([alert-ns alert-id]
-    ((read-history (metric-types :alert) alert-ns alert-id nil) :values)
+    ((read-history (store :alerts) alert-ns alert-id nil) :values)
     )
   ([alert-ns alert-id tags]
-    ((read-history (metric-types :alert) alert-ns alert-id tags) :values)
+    ((read-history (store :alerts) alert-ns alert-id tags) :values)
     )
   )
 
 (defn- reset-alert-history [alert-ns alert-id limit]
-  (reset-history (metric-types :alert) alert-ns alert-id limit)
+  (reset-history (store :alerts) alert-ns alert-id limit)
   )
 
 (defn- read-gauge [gauge-ns gauge-id]
-  (read-metric (metric-types :gauge) gauge-ns gauge-id)
+  (read-metric (store :gauges) gauge-ns gauge-id)
   )
 
 (defn- update-gauge
   ([gauge-ns gauge-id timestamp value]
-    (set-metric (metric-types :gauge) gauge-ns gauge-id timestamp value #{}))
+    (set-metric (store :gauges) gauge-ns gauge-id timestamp value #{}))
   ([gauge-ns gauge-id timestamp value tags]
-    (set-metric (metric-types :gauge) gauge-ns gauge-id timestamp value tags))
+    (set-metric (store :gauges) gauge-ns gauge-id timestamp value tags))
   )
 
 (defn- list-gauges [gauge-ns tags]
-  (list-metrics (metric-types :gauge) gauge-ns tags)
+  (list-metrics (store :gauges) gauge-ns tags)
   )
 
 (defn- read-gauge-history
   ([gauge-ns gauge-id]
-    ((read-history (metric-types :gauge) gauge-ns gauge-id nil) :values)
+    ((read-history (store :gauges) gauge-ns gauge-id nil) :values)
     )
   ([gauge-ns gauge-id tags]
-    ((read-history (metric-types :gauge) gauge-ns gauge-id tags) :values)
+    ((read-history (store :gauges) gauge-ns gauge-id tags) :values)
     )
   )
 
 (defn- reset-gauge-history [gauge-ns gauge-id limit]
-  (reset-history (metric-types :gauge) gauge-ns gauge-id limit)
+  (reset-history (store :gauges) gauge-ns gauge-id limit)
   )
 
 (defn- remove-gauge [gauge-ns gauge-id]
-  (remove-metric (metric-types :gauge) gauge-ns gauge-id)
+  (remove-metric (store :gauges) gauge-ns gauge-id)
   )
 
 (defn- remove-gauges [gauge-ns tags]
-  (remove-metrics (metric-types :gauge) gauge-ns tags)
+  (remove-metrics (store :gauges) gauge-ns tags)
   )
 
 (defn- expire-gauges [gauge-ns age]
-  (expire-metrics (metric-types :gauge) gauge-ns age)
+  (expire-metrics (store :gauges) gauge-ns age)
   )
 
 (defn- read-counter [counter-ns counter-id]
-  (read-metric (metric-types :counter) counter-ns counter-id)
+  (read-metric (store :counters) counter-ns counter-id)
   )
 
 (defn- update-counter 
   ([counter-ns counter-id timestamp value]
-    (set-metric (metric-types :counter) counter-ns counter-id timestamp value #{}))
+    (set-metric (store :counters) counter-ns counter-id timestamp value #{}))
   ([counter-ns counter-id timestamp value tags]
-    (set-metric (metric-types :counter) counter-ns counter-id timestamp value tags))
+    (set-metric (store :counters) counter-ns counter-id timestamp value tags))
   )
 
 (defn- list-counters [counter-ns tags]
-  (list-metrics (metric-types :counter) counter-ns tags)
+  (list-metrics (store :counters) counter-ns tags)
   )
 
 (defn- remove-counter [counter-ns counter-id]
-  (remove-metric (metric-types :counter) counter-ns counter-id)
+  (remove-metric (store :counters) counter-ns counter-id)
   )
 
 (defn- remove-counters [counter-ns tags]
-  (remove-metrics (metric-types :counter) counter-ns tags)
+  (remove-metrics (store :counters) counter-ns tags)
   )
 
 (defn- expire-counters [counter-ns age]
-  (expire-metrics (metric-types :counter) counter-ns age)
+  (expire-metrics (store :counters) counter-ns age)
   )
 
 (defn- read-counter-history
   ([counter-ns counter-id]
-    ((read-history (metric-types :counter) counter-ns counter-id nil) :values)
+    ((read-history (store :counters) counter-ns counter-id nil) :values)
     )
   ([counter-ns counter-id tags]
-    ((read-history (metric-types :counter) counter-ns counter-id tags) :values)
+    ((read-history (store :counters) counter-ns counter-id tags) :values)
     )
   )
 
 (defn- reset-counter-history [counter-ns counter-id limit]
-  (reset-history (metric-types :counter) counter-ns counter-id limit)
+  (reset-history (store :counters) counter-ns counter-id limit)
   )
 
 (defn- read-timer [timer-ns timer-id]
-  (read-metric (metric-types :timer) timer-ns timer-id)
+  (read-metric (store :timers) timer-ns timer-id)
   )
 
 (defn- update-timer 
   ([timer-ns timer-id timestamp value]
-    (set-metric (metric-types :timer) timer-ns timer-id timestamp value #{}))
+    (set-metric (store :timers) timer-ns timer-id timestamp value #{}))
   ([timer-ns timer-id timestamp value tags]
-    (set-metric (metric-types :timer) timer-ns timer-id timestamp value tags))
+    (set-metric (store :timers) timer-ns timer-id timestamp value tags))
   )
 
 (defn- list-timers [timer-ns tags]
-  (list-metrics (metric-types :timer) timer-ns tags)
+  (list-metrics (store :timers) timer-ns tags)
   )
 
 (defn- remove-timer [timer-ns timer-id]
-  (remove-metric (metric-types :timer) timer-ns timer-id)
+  (remove-metric (store :timers) timer-ns timer-id)
   )
 
 (defn- remove-timers [timer-ns tags]
-  (remove-metrics (metric-types :timer) timer-ns tags)
+  (remove-metrics (store :timers) timer-ns tags)
   )
 
 (defn- expire-timers [timer-ns age]
-  (expire-metrics (metric-types :timer) timer-ns age)
+  (expire-metrics (store :timers) timer-ns age)
   )
 
 (defn- read-timer-history
   ([timer-ns timer-id]
-    ((read-history (metric-types :timer) timer-ns timer-id nil) :values)
+    ((read-history (store :timers) timer-ns timer-id nil) :values)
     )
   ([timer-ns timer-id tags]
-    ((read-history (metric-types :timer) timer-ns timer-id tags) :values)
+    ((read-history (store :timers) timer-ns timer-id tags) :values)
     )
   )
 
 (defn- reset-timer-history [timer-ns timer-id limit]
-  (reset-history (metric-types :timer) timer-ns timer-id limit)
+  (reset-history (store :timers) timer-ns timer-id limit)
   )
 
 (deftest alert-metrics

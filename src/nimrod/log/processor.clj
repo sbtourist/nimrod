@@ -3,7 +3,7 @@
    [clojure.string :as string :only [split]]
    [clojure.contrib.logging :as log]
    [nimrod.core.metrics])
- (:refer-clojure :exclude [spit])
+ (:refer-clojure :exclude [split])
  )
 
 (defonce log-pattern (re-pattern ".*\\[nimrod].*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.*)\\].*"))
@@ -31,8 +31,8 @@
 
 (defn process [log line]
   (if-let [extracted (extract line)]
-    (if-let [metric (metric-types (keyword (extracted :metric)))]
-      (set-metric metric log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
+    (if-let [metrics (store (keyword (extracted :metric)))]
+      (set-metric metrics log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
       (log/warn (str "No metric with name: " (extracted :metric)))
       )
     )
