@@ -290,9 +290,17 @@
 
 ; ---
 
+(defonce alert-store (MetricStore. (Alert.) (ref {})))
+(defonce gauge-store (MetricStore. (Gauge.) (ref {})))
+(defonce counter-store (MetricStore. (Counter.) (ref {})))
+(defonce timer-store (MetricStore. (Timer.) (ref {})))
 (defonce store {
-                 :alerts (MetricStore. (Alert.) (ref {}))
-                 :gauges (MetricStore. (Gauge.) (ref {}))
-                 :counters (MetricStore. (Counter.) (ref {}))
-                 :timers (MetricStore. (Timer.) (ref {}))
+                 :alert alert-store
+                 :gauge gauge-store
+                 :counter counter-store
+                 :timer timer-store
+                 :alerts alert-store
+                 :gauges gauge-store
+                 :counters counter-store
+                 :timers timer-store
                  })
