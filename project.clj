@@ -7,7 +7,9 @@
                 [ring/ring-core "0.3.11"]
                 [ring/ring-jetty-adapter "0.3.11"]
                 [commons-io/commons-io "2.0.1"]
-                [log4j/log4j "1.2.16" :exclusions [javax.mail/mail javax.jms/jms com.sun.jdmk/jmxtools com.sun.jmx/jmxri]]
+                [com.google.guava/guava "r09"]
+                [org.slf4j/slf4j-api "1.6.1"]
+                [org.slf4j/slf4j-log4j12 "1.6.1"]
                 ]
  :dev-dependencies [[ring-mock "0.1.1"]]
  :java-source-path "src"
