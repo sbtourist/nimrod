@@ -163,6 +163,8 @@
 
 ; ---
 
+(defrecord MetricStore [type metrics])
+
 (defn- init-history
   ([limit]
     {:limit limit :size 0 :values []})
@@ -183,10 +185,6 @@
     )
   )
 
-(defn- get-metrics-in-ns [metrics metric-ns]
-  (@metrics metric-ns)
-  )
-
 (defn- get-metric [metrics metric-ns metric-id]
   ((get @metrics metric-ns {}) metric-id)
   )
@@ -201,20 +199,11 @@
     )
   )
 
-(defprotocol Metrics
-  (set-metric [this metric-ns metric-id timestamp value tags])
-  (read-metric [this metric-ns metric-id])
-  (remove-metric [this metric-ns metric-id])
-  (list-metrics [this metric-ns tags])
-  (remove-metrics [this metric-ns tags])
-  (expire-metrics [this metric-ns age])
-  (read-history [this metric-ns metric-id tags])
-  (reset-history [this metric-ns metric-id limit])
+(defn- get-metrics-in-ns [metrics metric-ns]
+  (@metrics metric-ns)
   )
 
-(deftype MetricStore [type metrics]
-  Metrics
-  (set-metric [this metric-ns metric-id timestamp value tags]
+(defn set-metric [{type :type metrics :metrics} metric-ns metric-id timestamp value tags]
     (dosync
       (let [metric (get-or-create-metric metrics metric-ns metric-id)]
         (let [t (System/currentTimeMillis)
@@ -226,7 +215,8 @@
         )
       )
     )
-  (read-metric [this metric-ns metric-id]
+
+  (defn read-metric [{type :type metrics :metrics} metric-ns metric-id]
     (dosync
       (if-let [metric (get-metric metrics metric-ns metric-id)]
         (@metric :displayed-value)
@@ -234,14 +224,16 @@
         )
       )
     )
-  (remove-metric [this metric-ns metric-id]
+
+  (defn remove-metric [{type :type metrics :metrics} metric-ns metric-id]
     (dosync
       (when-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
         (alter metrics conj [metric-ns (dissoc metrics-in-ns metric-id)])
         )
       )
     )
-  (list-metrics [this metric-ns tags]
+
+  (defn list-metrics [{type :type metrics :metrics} metric-ns tags]
     (dosync
       (if-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
         (if (seq tags)
@@ -252,21 +244,24 @@
         )
       )
     )
-  (remove-metrics [this metric-ns tags]
+
+  (defn remove-metrics [{type :type metrics :metrics} metric-ns tags]
     (dosync
       (when-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
         (alter metrics conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics-in-ns))])
         )
       )
     )
-  (expire-metrics [this metric-ns age]
+
+  (defn expire-metrics [{type :type metrics :metrics} metric-ns age]
     (dosync
       (when-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
         (alter metrics conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics-in-ns))])
         )
       )
     )
-  (read-history [this metric-ns metric-id tags]
+
+  (defn read-history [{type :type metrics :metrics} metric-ns metric-id tags]
     (dosync
       (if-let [metric (get-metric metrics metric-ns metric-id)]
         (if (seq tags)
@@ -279,14 +274,14 @@
         )
       )
     )
-  (reset-history [this metric-ns metric-id limit]
+
+  (defn reset-history [{type :type metrics :metrics} metric-ns metric-id limit]
     (dosync
       (let [metric (get-or-create-metric metrics metric-ns metric-id)]
         (alter metric conj {:history (init-history limit)})
         )
       )
     )
-  )
 
 ; ---
 
