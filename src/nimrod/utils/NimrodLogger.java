@@ -99,7 +99,7 @@ public class NimrodLogger {
     }
 
     public void debug(String value, String... tags) {
-        delegate.debug(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").join(tags)});
+        delegate.debug(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").skipNulls().join(tags)});
     }
 
     public boolean isInfoEnabled() {
@@ -111,7 +111,7 @@ public class NimrodLogger {
     }
 
     public void info(String value, String... tags) {
-        delegate.info(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").join(tags)});
+        delegate.info(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").skipNulls().join(tags)});
     }
 
     public boolean isWarnEnabled() {
@@ -123,7 +123,7 @@ public class NimrodLogger {
     }
 
     public void warn(String value, String... tags) {
-        delegate.warn(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").join(tags)});
+        delegate.warn(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").skipNulls().join(tags)});
     }
 
     public boolean isErrorEnabled() {
@@ -135,6 +135,6 @@ public class NimrodLogger {
     }
 
     public void error(String value, String... tags) {
-        delegate.error(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").join(tags)});
+        delegate.error(TEMPLATE_WITH_TAGS, new Object[]{NIMROD, new Date().getTime(), metricType, metricName, value, Joiner.on(",").skipNulls().join(tags)});
     }
 }
