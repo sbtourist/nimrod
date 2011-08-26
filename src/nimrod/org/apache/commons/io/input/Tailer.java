@@ -21,7 +21,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.TailerListener;
 import org.apache.commons.io.input.TailerListenerAdapter;
@@ -190,7 +189,7 @@ public class Tailer implements Runnable {
 
         // Save and prepare the listener
         this.listener = listener;
-        
+
         // NOT NEEDED IN NIMROD: listener.init(this);
     }
 
@@ -273,7 +272,7 @@ public class Tailer implements Runnable {
     public void run() {
         RandomAccessFile reader = null;
         try {
-            long last = 0; // The last time the file was checked for changes
+            long time = 0; // latest last modified time read
             long position = 0; // position within the file
             // Open the file
             while (run && reader == null) {
@@ -291,8 +290,8 @@ public class Tailer implements Runnable {
                 } else {
                     // The current position in the file
                     position = end ? file.length() : 0;
-                    last = System.currentTimeMillis();
                     reader.seek(position);
+                    time = file.lastModified();
                 }
             }
 
@@ -301,8 +300,13 @@ public class Tailer implements Runnable {
 
                 // Check the file length to see if it was rotated
                 long length = file.length();
+                long lastModified = file.lastModified();
+                
+                boolean shorterLength = length < position;
+                boolean longerLength = length > position;
+                boolean moreRecentlyModified = lastModified > time;
 
-                if (length < position) {
+                if (shorterLength) {
 
                     // File was rotated
                     listener.fileRotated();
@@ -320,12 +324,24 @@ public class Tailer implements Runnable {
                         listener.fileNotFound();
                     }
                     continue;
-                } else {
+                } else if (longerLength) {
 
                     // File was not rotated
                     // The file has more content than it did last time
-                    last = System.currentTimeMillis();
+
+                    long oldPosition = position;
+
+                    time = file.lastModified();
                     position = readLines(reader);
+                    
+                    boolean sameOldPosition = position == oldPosition;
+
+                    // If position is equal to old position but wasn't supposed to be because file seems to be modified, 
+                    // it means file has been rotated but we're not correctly reading it, so force rotation:
+                    if (sameOldPosition && moreRecentlyModified) {
+                        position = Long.MAX_VALUE;
+                        continue;
+                    }
                 }
                 try {
                     Thread.sleep(delay);
