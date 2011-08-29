@@ -10,9 +10,11 @@
 
 (defn- update-alert
   ([alert-ns alert-id timestamp value]
-    (set-metric (store :alerts) alert-ns alert-id timestamp value #{}))
+    (set-metric (store :alerts) alert-ns alert-id timestamp value #{})
+    (Thread/sleep 250))
   ([alert-ns alert-id timestamp value tags]
-    (set-metric (store :alerts) alert-ns alert-id timestamp value tags))
+    (set-metric (store :alerts) alert-ns alert-id timestamp value tags)
+    (Thread/sleep 250))
   )
 
 (defn- list-alerts [alert-ns tags]
@@ -50,9 +52,11 @@
 
 (defn- update-gauge
   ([gauge-ns gauge-id timestamp value]
-    (set-metric (store :gauges) gauge-ns gauge-id timestamp value #{}))
+    (set-metric (store :gauges) gauge-ns gauge-id timestamp value #{})
+    (Thread/sleep 250))
   ([gauge-ns gauge-id timestamp value tags]
-    (set-metric (store :gauges) gauge-ns gauge-id timestamp value tags))
+    (set-metric (store :gauges) gauge-ns gauge-id timestamp value tags)
+    (Thread/sleep 250))
   )
 
 (defn- list-gauges [gauge-ns tags]
@@ -90,9 +94,11 @@
 
 (defn- update-counter 
   ([counter-ns counter-id timestamp value]
-    (set-metric (store :counters) counter-ns counter-id timestamp value #{}))
+    (set-metric (store :counters) counter-ns counter-id timestamp value #{})
+    (Thread/sleep 250))
   ([counter-ns counter-id timestamp value tags]
-    (set-metric (store :counters) counter-ns counter-id timestamp value tags))
+    (set-metric (store :counters) counter-ns counter-id timestamp value tags)
+    (Thread/sleep 250))
   )
 
 (defn- list-counters [counter-ns tags]
@@ -130,9 +136,11 @@
 
 (defn- update-timer 
   ([timer-ns timer-id timestamp value]
-    (set-metric (store :timers) timer-ns timer-id timestamp value #{}))
+    (set-metric (store :timers) timer-ns timer-id timestamp value #{})
+    (Thread/sleep 250))
   ([timer-ns timer-id timestamp value tags]
-    (set-metric (store :timers) timer-ns timer-id timestamp value tags))
+    (set-metric (store :timers) timer-ns timer-id timestamp value tags)
+    (Thread/sleep 250))
   )
 
 (defn- list-timers [timer-ns tags]
@@ -198,10 +206,10 @@
     )
   (testing "Expire alerts"
     (update-alert "alert-metrics" "3" "4" "v4")
-    (Thread/sleep 200)
-    (update-alert "alert-metrics" "4" "5" "v5")
     (Thread/sleep 100)
-    (expire-alerts "alert-metrics" 200)
+    (update-alert "alert-metrics" "4" "5" "v5")
+    (Thread/sleep 500)
+    (expire-alerts "alert-metrics" 1000)
     (is (= ["4"] (list-alerts "alert-metrics" nil)))
     )
   )
@@ -270,10 +278,10 @@
     )
   (testing "Expire gauges"
     (update-gauge "gauge-metrics" "3" "1" "1")
-    (Thread/sleep 200)
-    (update-gauge "gauge-metrics" "4" "1" "1")
     (Thread/sleep 100)
-    (expire-gauges "gauge-metrics" 200)
+    (update-gauge "gauge-metrics" "4" "1" "1")
+    (Thread/sleep 500)
+    (expire-gauges "gauge-metrics" 1000)
     (is (= ["4"] (list-gauges "gauge-metrics" nil)))    
     )
   )
@@ -346,10 +354,10 @@
     )
   (testing "Expire counters"
     (update-counter "counter-metrics" "3" "1" "1")
-    (Thread/sleep 200)
-    (update-counter "counter-metrics" "4" "1" "1")
     (Thread/sleep 100)
-    (expire-counters "counter-metrics" 200)
+    (update-counter "counter-metrics" "4" "1" "1")
+    (Thread/sleep 500)
+    (expire-counters "counter-metrics" 1000)
     (is (= ["4"] (list-counters "counter-metrics" nil)))
     )
   )
@@ -432,10 +440,10 @@
     )
   (testing "Expire timers"
     (update-timer "timer-metrics" "3" "1" "start")
-    (Thread/sleep 200)
-    (update-timer "timer-metrics" "4" "1" "start")
     (Thread/sleep 100)
-    (expire-timers "timer-metrics" 200)
+    (update-timer "timer-metrics" "4" "1" "start")
+    (Thread/sleep 500)
+    (expire-timers "timer-metrics" 1000)
     (is (= ["4"] (list-timers "timer-metrics" nil)))
     )
   )

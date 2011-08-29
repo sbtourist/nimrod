@@ -189,10 +189,14 @@
   ((get @metrics metric-ns {}) metric-id)
   )
 
+(defn- create-metric []
+  (new-agent {:history (init-history 100) :computed-value nil :displayed-value nil :update-time nil})
+  )
+
 (defn- get-or-create-metric [metrics metric-ns metric-id]
   (if-let [metric ((get @metrics metric-ns {}) metric-id)]
     metric
-    (let [metric (ref {:history (init-history 100) :computed-value nil :displayed-value nil :update-time nil})]
+    (let [metric (create-metric)]
       (alter metrics assoc-in [metric-ns metric-id] metric)
       metric
       )
@@ -204,17 +208,18 @@
   )
 
 (defn set-metric [{type :type metrics :metrics} metric-ns metric-id timestamp value tags]
-    (dosync
-      (let [metric (get-or-create-metric metrics metric-ns metric-id)]
-        (let [t (System/currentTimeMillis)
-              computed (compute type metric-id timestamp (@metric :computed-value) value tags)
-              displayed (display computed t)
-              history (update-history (@metric :history) displayed)]
-          (ref-set metric {:history history :computed-value computed :displayed-value displayed :update-time t})
-          )
+  (dosync
+    (let [metric (get-or-create-metric metrics metric-ns metric-id)]
+      (send metric (fn [current _] (let [t (System/currentTimeMillis)
+                          computed (compute type metric-id timestamp (current :computed-value) value tags)
+                          displayed (display computed t)
+                          history (update-history (current :history) displayed)]
+                      {:history history :computed-value computed :displayed-value displayed :update-time t}
+                      )) nil
         )
       )
     )
+  )
 
   (defn read-metric [{type :type metrics :metrics} metric-ns metric-id]
     (dosync
@@ -278,7 +283,7 @@
   (defn reset-history [{type :type metrics :metrics} metric-ns metric-id limit]
     (dosync
       (let [metric (get-or-create-metric metrics metric-ns metric-id)]
-        (alter metric conj {:history (init-history limit)})
+        (send metric conj {:history (init-history limit)})
         )
       )
     )
