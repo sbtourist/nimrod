@@ -1,12 +1,10 @@
 (ns nimrod.log.tailer
  (:use
-   [clojure.contrib.io :as io]
+   [clojure.contrib.io :as io :only [file]]
    [clojure.contrib.logging :as log]
    [nimrod.log.processor])
  (:import
-   [nimrod.org.apache.commons.io.input Tailer]
-   [org.apache.commons.io.input TailerListenerAdapter])
- (:refer-clojure :exclude [spit])
+   [tayler Tailer TailerListenerAdapter])
  )
 
 (defonce tailer-buffer-size 4096)
@@ -14,12 +12,14 @@
 (defonce tailers-sequence (atom 0))
 
 (defn- create-tailer [id log interval]
-  (Tailer/create
+  (Tailer.
     (io/file log)
     (proxy [TailerListenerAdapter] []
       (fileNotFound [] (log/error (str "Log file not found: " log)))
       (fileRotated [] (log/info (str "Rotated log file: " log)))
-      (handle [obj] (if (string? obj) (process id obj) (log/error (.getMessage obj) obj)))
+      (error [obj] (log/error (.getMessage obj) obj))
+      (handle [obj] (process id obj))
+      (stop [] (log/info (str "Stopped tailing file: " log)))
       )
     interval
     true
@@ -31,6 +31,7 @@
   (dosync
     (let [id (Long/toString (swap! tailers-sequence inc)) tailer (create-tailer id log interval)]
       (log/info (str "Start listening to log: " log))
+      (doto (Thread. tailer) (.setDaemon true) (.start))
       (alter tailers assoc id {:log log :tailer tailer})
       id
       )
