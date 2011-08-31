@@ -7,6 +7,17 @@
    [nimrod.core.util])
  )
 
+(defonce alert (new-alert))
+(defonce gauge (new-gauge))
+(defonce counter (new-counter))
+(defonce timer (new-timer))
+(defonce metrics {
+                  alert (ref {})
+                  gauge (ref {})
+                  counter (ref {})
+                  timer (ref {})
+                  })
+
 (defn- get-metric [values metric-ns metric-id]
   ((get @values metric-ns {}) metric-id)
   )
@@ -29,9 +40,9 @@
   (@values metric-ns)
   )
 
-(defn set-metric [{type :type values :values} metric-ns metric-id timestamp value tags]
+(defn set-metric [type metric-ns metric-id timestamp value tags]
   (dosync
-    (let [metric (get-or-create-metric values metric-ns metric-id)]
+    (let [values (metrics type) metric (get-or-create-metric values metric-ns metric-id)]
       (send metric (fn [current _] (let [t (System/currentTimeMillis)
                                          computed (compute type metric-id timestamp (current :computed-value) value tags)
                                          displayed (display computed t)
@@ -43,84 +54,83 @@
     )
   )
 
-(defn read-metric [{type :type values :values} metric-ns metric-id]
+(defn read-metric [type metric-ns metric-id]
   (dosync
-    (if-let [metric (get-metric values metric-ns metric-id)]
-      (@metric :displayed-value)
-      nil
-      )
-    )
-  )
-
-(defn remove-metric [{type :type values :values} metric-ns metric-id]
-  (dosync
-    (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
-      (alter values conj [metric-ns (dissoc metrics-in-ns metric-id)])
-      )
-    )
-  )
-
-(defn list-metrics [{type :type values :values} metric-ns tags]
-  (dosync
-    (if-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
-      (if (seq tags)
-        (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics-in-ns)))))
-        (apply vector (sort (keys metrics-in-ns)))
+    (let [values (metrics type)]
+      (if-let [metric (get-metric values metric-ns metric-id)]
+        (@metric :displayed-value)
+        nil
         )
-      []
       )
     )
   )
 
-(defn remove-metrics [{type :type values :values} metric-ns tags]
+(defn remove-metric [type metric-ns metric-id]
   (dosync
-    (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
-      (alter values conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics-in-ns))])
+    (let [values (metrics type)]
+      (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+        (alter values conj [metric-ns (dissoc metrics-in-ns metric-id)])
+        )
       )
     )
   )
 
-(defn expire-metrics [{type :type values :values} metric-ns age]
+(defn list-metrics [type metric-ns tags]
   (dosync
-    (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
-      (alter values conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics-in-ns))])
-      )
-    )
-  )
-
-(defn read-history [{type :type values :values} metric-ns metric-id tags]
-  (dosync
-    (if-let [metric (get-metric values metric-ns metric-id)]
-      (if (seq tags)
-        (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
-          (assoc history :size (count filtered-values) :values (apply vector filtered-values))
+    (let [values (metrics type)]
+      (if-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+        (if (seq tags)
+          (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics-in-ns)))))
+          (apply vector (sort (keys metrics-in-ns)))
           )
-        (@metric :history)
+        []
         )
-      nil
       )
     )
   )
 
-(defn reset-history [{type :type values :values} metric-ns metric-id limit]
+(defn remove-metrics [type metric-ns tags]
   (dosync
-    (let [metric (get-or-create-metric values metric-ns metric-id)]
-      (send metric conj {:history (create-history limit)})
+    (let [values (metrics type)]
+      (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+        (alter values conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics-in-ns))])
+        )
       )
     )
   )
 
-(defonce alerts {:type (new-alert) :values (ref {})})
-(defonce gauges {:type (new-gauge) :values (ref {})})
-(defonce counters {:type (new-counter) :values (ref {})})
-(defonce timers {:type (new-timer) :values (ref {})})
-(defonce metrics {
-                  :alert alerts
-                  :gauge gauges
-                  :counter counters
-                  :timer timers
-                  :alerts alerts
-                  :gauges gauges
-                  :counters counters
-                  :timers timers
-                  })
+(defn expire-metrics [type metric-ns age]
+  (dosync
+    (let [values (metrics type)]
+      (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+        (alter values conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics-in-ns))])
+        )
+      )
+    )
+  )
+
+(defn read-history [type metric-ns metric-id tags]
+  (dosync
+    (let [values (metrics type)]
+      (if-let [metric (get-metric values metric-ns metric-id)]
+        (if (seq tags)
+          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
+            (assoc history :size (count filtered-values) :values (apply vector filtered-values))
+            )
+          (@metric :history)
+          )
+        nil
+        )
+      )
+    )
+  )
+
+(defn reset-history [type metric-ns metric-id limit]
+  (dosync
+    (let [values (metrics type)]
+      (let [metric (get-or-create-metric values metric-ns metric-id)]
+        (send metric conj {:history (create-history limit)})
+        )
+      )
+    )
+  )

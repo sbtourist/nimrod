@@ -29,11 +29,21 @@
     )
   )
 
+(defn- type-of [metric]
+  (condp = metric
+    "alert" alert
+    "gauge" gauge
+    "counter" counter
+    "timer" timer
+    nil
+    )
+  )
+
 (defn process [log line]
   (try
     (if-let [extracted (extract line)]
-      (if-let [actual (metrics (keyword (extracted :metric)))]
-        (set-metric actual log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
+      (if-let [metric (type-of (extracted :metric))]
+        (set-metric metric log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
         (log/warn (str "No metric with name: " (extracted :metric)))
         )
       )

@@ -5,171 +5,171 @@
  )
 
 (defn- read-alert [alert-ns alert-id]
-  (read-metric (metrics :alerts) alert-ns alert-id)
+  (read-metric alert alert-ns alert-id)
   )
 
 (defn- update-alert
   ([alert-ns alert-id timestamp value]
-    (set-metric (metrics :alerts) alert-ns alert-id timestamp value #{})
+    (set-metric alert alert-ns alert-id timestamp value #{})
     (Thread/sleep 250))
   ([alert-ns alert-id timestamp value tags]
-    (set-metric (metrics :alerts) alert-ns alert-id timestamp value tags)
+    (set-metric alert alert-ns alert-id timestamp value tags)
     (Thread/sleep 250))
   )
 
 (defn- list-alerts [alert-ns tags]
-  (list-metrics (metrics :alerts) alert-ns tags)
+  (list-metrics alert alert-ns tags)
   )
 
 (defn- remove-alert [alert-ns alert-id]
-  (remove-metric (metrics :alerts) alert-ns alert-id)
+  (remove-metric alert alert-ns alert-id)
   )
 
 (defn- remove-alerts [alert-ns tags]
-  (remove-metrics (metrics :alerts) alert-ns tags)
+  (remove-metrics alert alert-ns tags)
   )
 
 (defn- expire-alerts [alert-ns age]
-  (expire-metrics (metrics :alerts) alert-ns age)
+  (expire-metrics alert alert-ns age)
   )
 
 (defn- read-alert-history
   ([alert-ns alert-id]
-    ((read-history (metrics :alerts) alert-ns alert-id nil) :values)
+    ((read-history alert alert-ns alert-id nil) :values)
     )
   ([alert-ns alert-id tags]
-    ((read-history (metrics :alerts) alert-ns alert-id tags) :values)
+    ((read-history alert alert-ns alert-id tags) :values)
     )
   )
 
 (defn- reset-alert-history [alert-ns alert-id limit]
-  (reset-history (metrics :alerts) alert-ns alert-id limit)
+  (reset-history alert alert-ns alert-id limit)
   )
 
 (defn- read-gauge [gauge-ns gauge-id]
-  (read-metric (metrics :gauges) gauge-ns gauge-id)
+  (read-metric gauge gauge-ns gauge-id)
   )
 
 (defn- update-gauge
   ([gauge-ns gauge-id timestamp value]
-    (set-metric (metrics :gauges) gauge-ns gauge-id timestamp value #{})
+    (set-metric gauge gauge-ns gauge-id timestamp value #{})
     (Thread/sleep 250))
   ([gauge-ns gauge-id timestamp value tags]
-    (set-metric (metrics :gauges) gauge-ns gauge-id timestamp value tags)
+    (set-metric gauge gauge-ns gauge-id timestamp value tags)
     (Thread/sleep 250))
   )
 
 (defn- list-gauges [gauge-ns tags]
-  (list-metrics (metrics :gauges) gauge-ns tags)
+  (list-metrics gauge gauge-ns tags)
   )
 
 (defn- read-gauge-history
   ([gauge-ns gauge-id]
-    ((read-history (metrics :gauges) gauge-ns gauge-id nil) :values)
+    ((read-history gauge gauge-ns gauge-id nil) :values)
     )
   ([gauge-ns gauge-id tags]
-    ((read-history (metrics :gauges) gauge-ns gauge-id tags) :values)
+    ((read-history gauge gauge-ns gauge-id tags) :values)
     )
   )
 
 (defn- reset-gauge-history [gauge-ns gauge-id limit]
-  (reset-history (metrics :gauges) gauge-ns gauge-id limit)
+  (reset-history gauge gauge-ns gauge-id limit)
   )
 
 (defn- remove-gauge [gauge-ns gauge-id]
-  (remove-metric (metrics :gauges) gauge-ns gauge-id)
+  (remove-metric gauge gauge-ns gauge-id)
   )
 
 (defn- remove-gauges [gauge-ns tags]
-  (remove-metrics (metrics :gauges) gauge-ns tags)
+  (remove-metrics gauge gauge-ns tags)
   )
 
 (defn- expire-gauges [gauge-ns age]
-  (expire-metrics (metrics :gauges) gauge-ns age)
+  (expire-metrics gauge gauge-ns age)
   )
 
 (defn- read-counter [counter-ns counter-id]
-  (read-metric (metrics :counters) counter-ns counter-id)
+  (read-metric counter counter-ns counter-id)
   )
 
 (defn- update-counter 
   ([counter-ns counter-id timestamp value]
-    (set-metric (metrics :counters) counter-ns counter-id timestamp value #{})
+    (set-metric counter counter-ns counter-id timestamp value #{})
     (Thread/sleep 250))
   ([counter-ns counter-id timestamp value tags]
-    (set-metric (metrics :counters) counter-ns counter-id timestamp value tags)
+    (set-metric counter counter-ns counter-id timestamp value tags)
     (Thread/sleep 250))
   )
 
 (defn- list-counters [counter-ns tags]
-  (list-metrics (metrics :counters) counter-ns tags)
+  (list-metrics counter counter-ns tags)
   )
 
 (defn- remove-counter [counter-ns counter-id]
-  (remove-metric (metrics :counters) counter-ns counter-id)
+  (remove-metric counter counter-ns counter-id)
   )
 
 (defn- remove-counters [counter-ns tags]
-  (remove-metrics (metrics :counters) counter-ns tags)
+  (remove-metrics counter counter-ns tags)
   )
 
 (defn- expire-counters [counter-ns age]
-  (expire-metrics (metrics :counters) counter-ns age)
+  (expire-metrics counter counter-ns age)
   )
 
 (defn- read-counter-history
   ([counter-ns counter-id]
-    ((read-history (metrics :counters) counter-ns counter-id nil) :values)
+    ((read-history counter counter-ns counter-id nil) :values)
     )
   ([counter-ns counter-id tags]
-    ((read-history (metrics :counters) counter-ns counter-id tags) :values)
+    ((read-history counter counter-ns counter-id tags) :values)
     )
   )
 
 (defn- reset-counter-history [counter-ns counter-id limit]
-  (reset-history (metrics :counters) counter-ns counter-id limit)
+  (reset-history counter counter-ns counter-id limit)
   )
 
 (defn- read-timer [timer-ns timer-id]
-  (read-metric (metrics :timers) timer-ns timer-id)
+  (read-metric timer timer-ns timer-id)
   )
 
 (defn- update-timer 
   ([timer-ns timer-id timestamp value]
-    (set-metric (metrics :timers) timer-ns timer-id timestamp value #{})
+    (set-metric timer timer-ns timer-id timestamp value #{})
     (Thread/sleep 250))
   ([timer-ns timer-id timestamp value tags]
-    (set-metric (metrics :timers) timer-ns timer-id timestamp value tags)
+    (set-metric timer timer-ns timer-id timestamp value tags)
     (Thread/sleep 250))
   )
 
 (defn- list-timers [timer-ns tags]
-  (list-metrics (metrics :timers) timer-ns tags)
+  (list-metrics timer timer-ns tags)
   )
 
 (defn- remove-timer [timer-ns timer-id]
-  (remove-metric (metrics :timers) timer-ns timer-id)
+  (remove-metric timer timer-ns timer-id)
   )
 
 (defn- remove-timers [timer-ns tags]
-  (remove-metrics (metrics :timers) timer-ns tags)
+  (remove-metrics timer timer-ns tags)
   )
 
 (defn- expire-timers [timer-ns age]
-  (expire-metrics (metrics :timers) timer-ns age)
+  (expire-metrics timer timer-ns age)
   )
 
 (defn- read-timer-history
   ([timer-ns timer-id]
-    ((read-history (metrics :timers) timer-ns timer-id nil) :values)
+    ((read-history timer timer-ns timer-id nil) :values)
     )
   ([timer-ns timer-id tags]
-    ((read-history (metrics :timers) timer-ns timer-id tags) :values)
+    ((read-history timer timer-ns timer-id tags) :values)
     )
   )
 
 (defn- reset-timer-history [timer-ns timer-id limit]
-  (reset-history (metrics :timers) timer-ns timer-id limit)
+  (reset-history timer timer-ns timer-id limit)
   )
 
 (deftest alert-metrics
