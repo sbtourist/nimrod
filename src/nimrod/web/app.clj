@@ -78,7 +78,7 @@
     )
 
   (http/GET ["/logs/:log-id/:metric-type" :tags #"[^/?#]+"] [log-id metric-type tags]
-    (if-let [metrics (store (keyword metric-type))]
+    (if-let [metrics (metrics (keyword metric-type))]
       (if-let [result (list-metrics metrics log-id (extract-tags tags))]
         (cors-response :ok result)
         (cors-response :not-found)
@@ -90,7 +90,7 @@
     (redirect-response (drop-last-char (request :uri)))
     )
   (http/DELETE ["/logs/:log-id/:metric-type" :age #"\d+" :tags #"[^/?#]+"] [log-id metric-type age tags]
-    (if-let [metrics (store (keyword metric-type))]
+    (if-let [metrics (metrics (keyword metric-type))]
       (do
         (if (not (nil? age))
           (expire-metrics metrics log-id (Long/parseLong age))
@@ -103,7 +103,7 @@
     )
 
   (http/GET ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-    (if-let [metrics (store (keyword metric-type))]
+    (if-let [metrics (metrics (keyword metric-type))]
       (if-let [result (read-metric metrics log-id metric-id)]
         (cors-response :ok result)
         (cors-response :not-found)
@@ -112,7 +112,7 @@
       )
     )
   (http/DELETE ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-    (if-let [metrics (store (keyword metric-type))]
+    (if-let [metrics (metrics (keyword metric-type))]
       (do
         (remove-metric metrics log-id metric-id)
         (std-response :no-content)
@@ -122,7 +122,7 @@
     )
 
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id limit]
-    (if-let [metrics (store (keyword metric-type))]
+    (if-let [metrics (metrics (keyword metric-type))]
       (do 
         (reset-history metrics log-id metric-id (Long/parseLong limit))
         (std-response :no-content)
@@ -131,7 +131,7 @@
       )
     )
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] [log-id metric-type metric-id tags]
-    (if-let [metrics (store (keyword metric-type))]
+    (if-let [metrics (metrics (keyword metric-type))]
       (if-let [result (read-history metrics log-id metric-id (extract-tags tags))]
         (cors-response :ok result)
         (cors-response :not-found)

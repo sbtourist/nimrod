@@ -1,306 +1,126 @@
 (ns nimrod.core.metrics
  (:use
    [clojure.set :as cset]
+   [nimrod.core.history]
    [nimrod.core.stat]
+   [nimrod.core.types]
    [nimrod.core.util])
  )
 
-(defprotocol MetricType
-  (compute [this id timestamp current-value new-value tags])
-  )
-
-(deftype Alert []
-  MetricType
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) alert new-value]
-      (if-let [current current-value]
-        (let [previous-time (current :timestamp)
-              previous-interval-average (current :interval-average)
-              previous-interval-variance (current :interval-variance)
-              interval (- new-time previous-time)
-              samples (inc (current :samples))
-              interval-average (average (dec samples) previous-interval-average interval)
-              interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
-              ]
-          (conj current {:timestamp new-time
-                         :alert alert
-                         :samples samples
-                         :interval-average interval-average
-                         :interval-variance interval-variance
-                         :tags tags})
-          )
-        {:id id 
-         :timestamp new-time
-         :samples 1
-         :interval-average 0
-         :interval-variance 0
-         :alert alert
-         :tags tags}
-        )
-      )
-    )
-  )
-
-(deftype Gauge []
-  MetricType
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong new-value)]
-      (if-let [current current-value]
-        (let [previous-time (current :timestamp)
-              previous-interval-average (current :interval-average)
-              previous-interval-variance (current :interval-variance)
-              previous-gauge-average (current :gauge-average)
-              previous-gauge-variance (current :gauge-variance)
-              interval (- new-time previous-time)
-              samples (inc (current :samples))
-              interval-average (average (dec samples) previous-interval-average interval)
-              interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
-              gauge-average (average samples previous-gauge-average gauge)
-              gauge-variance (variance samples previous-gauge-variance previous-gauge-average gauge-average gauge)]
-          (conj current {:timestamp new-time
-                         :gauge gauge
-                         :samples samples
-                         :interval-average interval-average
-                         :interval-variance interval-variance
-                         :gauge-average gauge-average
-                         :gauge-variance gauge-variance
-                         :tags tags
-                         })
-          )
-        {:id id
-         :timestamp new-time
-         :gauge gauge
-         :samples 1
-         :interval-average 0
-         :interval-variance 0
-         :gauge-average gauge
-         :gauge-variance 0
-         :tags tags}
-        )
-      )
-    )
-  )
-
-(deftype Counter []
-  MetricType
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) increment (Long/parseLong new-value)]
-      (if-let [current current-value]
-        (let [previous-time (current :timestamp)
-              previous-counter (current :counter)
-              previous-interval-average (current :interval-average)
-              previous-interval-variance (current :interval-variance)
-              previous-increment-average (current :increment-average)
-              previous-increment-variance (current :increment-variance)
-              interval (- new-time previous-time)
-              samples (inc (current :samples))
-              interval-average (average (dec samples) previous-interval-average interval)
-              interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
-              increment-average (average samples previous-increment-average increment)
-              increment-variance (variance samples previous-increment-variance previous-increment-average increment-average increment)]
-          (conj current {:timestamp new-time
-                         :counter (+ previous-counter increment)
-                         :samples samples
-                         :interval-average interval-average
-                         :interval-variance interval-variance
-                         :latest-interval interval
-                         :increment-average increment-average
-                         :increment-variance increment-variance
-                         :latest-increment increment
-                         :tags tags
-                         })
-          )
-        {:id id
-         :timestamp new-time
-         :counter increment
-         :samples 1
-         :interval-average 0
-         :interval-variance 0
-         :latest-interval 0
-         :increment-average increment
-         :increment-variance 0
-         :latest-increment increment
-         :tags tags}
-        )
-      )
-    )
-  )
-
-(deftype Timer []
-  MetricType
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) timer new-time action new-value]
-      (if-let [current current-value]
-        (cond
-          (= "start" action)
-          (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
-          (= "stop" action)
-          (let [previous-elapsed-time-average (current :elapsed-time-average)
-                previous-elapsed-time-variance (current :elapsed-time-variance)
-                start (current :start)
-                samples (inc (current :samples))
-                elapsed-time (- timer start)
-                elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
-                elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
-            (conj current {:timestamp new-time
-                           :end timer
-                           :elapsed-time elapsed-time
-                           :elapsed-time-average elapsed-time-average
-                           :elapsed-time-variance elapsed-time-variance
-                           :samples samples
-                           :tags tags})
-            )
-          :else (throw (IllegalStateException. (str "Bad timer action: " action)))
-          )
-        (if (= "start" action)
-          {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
-          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action)))
-          )
-        )
-      )
-    )
-  )
-
-; ---
-
-(defrecord MetricStore [type metrics])
-
-(defn- init-history
-  ([limit]
-    {:limit limit :size 0 :values []})
-  ([limit value]
-    {:limit limit :size 1 :values [value]})
-  )
-
-(defn- update-history [history value]
-  (let [limit (history :limit) values (history :values) size (count values)]
-    (if (= size limit)
-      (let [new-values (conj (apply vector (rest values)) value)]
-        (assoc history :values new-values :size (count new-values))
-        )
-      (let [new-values (conj values value)]
-        (assoc history :values new-values :size (count new-values))
-        )
-      )
-    )
-  )
-
-(defn- get-metric [metrics metric-ns metric-id]
-  ((get @metrics metric-ns {}) metric-id)
+(defn- get-metric [values metric-ns metric-id]
+  ((get @values metric-ns {}) metric-id)
   )
 
 (defn- create-metric []
-  (new-agent {:history (init-history 100) :computed-value nil :displayed-value nil :update-time nil})
+  (new-agent {:history (create-history 100) :computed-value nil :displayed-value nil :update-time nil})
   )
 
-(defn- get-or-create-metric [metrics metric-ns metric-id]
-  (if-let [metric ((get @metrics metric-ns {}) metric-id)]
+(defn- get-or-create-metric [values metric-ns metric-id]
+  (if-let [metric ((get @values metric-ns {}) metric-id)]
     metric
     (let [metric (create-metric)]
-      (alter metrics assoc-in [metric-ns metric-id] metric)
+      (alter values assoc-in [metric-ns metric-id] metric)
       metric
       )
     )
   )
 
-(defn- get-metrics-in-ns [metrics metric-ns]
-  (@metrics metric-ns)
+(defn- get-metrics-in-ns [values metric-ns]
+  (@values metric-ns)
   )
 
-(defn set-metric [{type :type metrics :metrics} metric-ns metric-id timestamp value tags]
+(defn set-metric [{type :type values :values} metric-ns metric-id timestamp value tags]
   (dosync
-    (let [metric (get-or-create-metric metrics metric-ns metric-id)]
+    (let [metric (get-or-create-metric values metric-ns metric-id)]
       (send metric (fn [current _] (let [t (System/currentTimeMillis)
-                          computed (compute type metric-id timestamp (current :computed-value) value tags)
-                          displayed (display computed t)
-                          history (update-history (current :history) displayed)]
-                      {:history history :computed-value computed :displayed-value displayed :update-time t}
-                      )) nil
+                                         computed (compute type metric-id timestamp (current :computed-value) value tags)
+                                         displayed (display computed t)
+                                         history (update-history (current :history) displayed)]
+                                     {:history history :computed-value computed :displayed-value displayed :update-time t}
+                                     )) nil
         )
       )
     )
   )
 
-  (defn read-metric [{type :type metrics :metrics} metric-ns metric-id]
-    (dosync
-      (if-let [metric (get-metric metrics metric-ns metric-id)]
-        (@metric :displayed-value)
-        nil
-        )
+(defn read-metric [{type :type values :values} metric-ns metric-id]
+  (dosync
+    (if-let [metric (get-metric values metric-ns metric-id)]
+      (@metric :displayed-value)
+      nil
       )
     )
+  )
 
-  (defn remove-metric [{type :type metrics :metrics} metric-ns metric-id]
-    (dosync
-      (when-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
-        (alter metrics conj [metric-ns (dissoc metrics-in-ns metric-id)])
-        )
+(defn remove-metric [{type :type values :values} metric-ns metric-id]
+  (dosync
+    (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+      (alter values conj [metric-ns (dissoc metrics-in-ns metric-id)])
       )
     )
+  )
 
-  (defn list-metrics [{type :type metrics :metrics} metric-ns tags]
-    (dosync
-      (if-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
-        (if (seq tags)
-          (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics-in-ns)))))
-          (apply vector (sort (keys metrics-in-ns)))
+(defn list-metrics [{type :type values :values} metric-ns tags]
+  (dosync
+    (if-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+      (if (seq tags)
+        (apply vector (sort (keys (into {} (filter #(cset/subset? tags ((@(second %1) :computed-value) :tags)) metrics-in-ns)))))
+        (apply vector (sort (keys metrics-in-ns)))
+        )
+      []
+      )
+    )
+  )
+
+(defn remove-metrics [{type :type values :values} metric-ns tags]
+  (dosync
+    (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+      (alter values conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics-in-ns))])
+      )
+    )
+  )
+
+(defn expire-metrics [{type :type values :values} metric-ns age]
+  (dosync
+    (when-let [metrics-in-ns (get-metrics-in-ns values metric-ns)]
+      (alter values conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics-in-ns))])
+      )
+    )
+  )
+
+(defn read-history [{type :type values :values} metric-ns metric-id tags]
+  (dosync
+    (if-let [metric (get-metric values metric-ns metric-id)]
+      (if (seq tags)
+        (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
+          (assoc history :size (count filtered-values) :values (apply vector filtered-values))
           )
-        []
+        (@metric :history)
         )
+      nil
       )
     )
+  )
 
-  (defn remove-metrics [{type :type metrics :metrics} metric-ns tags]
-    (dosync
-      (when-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
-        (alter metrics conj [metric-ns (into {} (filter #(not (cset/subset? tags ((@(second %1) :computed-value) :tags))) metrics-in-ns))])
-        )
+(defn reset-history [{type :type values :values} metric-ns metric-id limit]
+  (dosync
+    (let [metric (get-or-create-metric values metric-ns metric-id)]
+      (send metric conj {:history (create-history limit)})
       )
     )
+  )
 
-  (defn expire-metrics [{type :type metrics :metrics} metric-ns age]
-    (dosync
-      (when-let [metrics-in-ns (get-metrics-in-ns metrics metric-ns)]
-        (alter metrics conj [metric-ns (into {} (filter #(< (- (System/currentTimeMillis) (@(second %1) :update-time)) age) metrics-in-ns))])
-        )
-      )
-    )
-
-  (defn read-history [{type :type metrics :metrics} metric-ns metric-id tags]
-    (dosync
-      (if-let [metric (get-metric metrics metric-ns metric-id)]
-        (if (seq tags)
-          (let [history (@metric :history) filtered-values (filter #(cset/subset? tags (%1 :tags)) (history :values))]
-            (assoc history :size (count filtered-values) :values (apply vector filtered-values))
-            )
-          (@metric :history)
-          )
-        nil
-        )
-      )
-    )
-
-  (defn reset-history [{type :type metrics :metrics} metric-ns metric-id limit]
-    (dosync
-      (let [metric (get-or-create-metric metrics metric-ns metric-id)]
-        (send metric conj {:history (init-history limit)})
-        )
-      )
-    )
-
-; ---
-
-(defonce alert-store (MetricStore. (Alert.) (ref {})))
-(defonce gauge-store (MetricStore. (Gauge.) (ref {})))
-(defonce counter-store (MetricStore. (Counter.) (ref {})))
-(defonce timer-store (MetricStore. (Timer.) (ref {})))
-(defonce store {
-                 :alert alert-store
-                 :gauge gauge-store
-                 :counter counter-store
-                 :timer timer-store
-                 :alerts alert-store
-                 :gauges gauge-store
-                 :counters counter-store
-                 :timers timer-store
-                 })
+(defonce alerts {:type (new-alert) :values (ref {})})
+(defonce gauges {:type (new-gauge) :values (ref {})})
+(defonce counters {:type (new-counter) :values (ref {})})
+(defonce timers {:type (new-timer) :values (ref {})})
+(defonce metrics {
+                  :alert alerts
+                  :gauge gauges
+                  :counter counters
+                  :timer timers
+                  :alerts alerts
+                  :gauges gauges
+                  :counters counters
+                  :timers timers
+                  })

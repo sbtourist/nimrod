@@ -7,7 +7,7 @@
    )
  )
 
-(defonce mocked-store {:gauges {}})
+(defonce mocked-metrics {:gauges {}})
 
 (deftest add-log
   (letfn [(mocked-start-tailer [log interval] (is (= "log" log)) (is (= 1000 interval)) "1")]
@@ -36,7 +36,7 @@
 
 (deftest list-metrics-for-type
   (letfn [(mocked-list-metrics [this log-id tags] (is (= "1" log-id)) ["gauge1"])]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/list-metrics mocked-list-metrics]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/list-metrics mocked-list-metrics]
       (is (= ["gauge1"] (read-json ((nimrod-app (request :get "/logs/1/gauges")) :body))))
       (is (= "/logs/1/gauges" (((nimrod-app (request :get "/logs/1/gauges/")) :headers) "Location")))
       )
@@ -45,7 +45,7 @@
 
 (deftest list-metrics-for-type-by-tags
   (letfn [(mocked-list-metrics [this log-id tags] (is (= "1" log-id)) (is (= #{"tag1"} tags)) ["gauge1"])]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/list-metrics mocked-list-metrics]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/list-metrics mocked-list-metrics]
       (is (= ["gauge1"] (read-json ((nimrod-app (request :get "/logs/1/gauges" {:tags "tag1"})) :body))))
       (is (= "/logs/1/gauges" (((nimrod-app (request :get "/logs/1/gauges/" {:tags "tag1"})) :headers) "Location")))
       )
@@ -54,7 +54,7 @@
 
 (deftest delete-metrics-by-age
   (letfn [(mocked-expire-metrics [this log-id age] (is (= "1" log-id)) (is (= 0 age)))]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/expire-metrics mocked-expire-metrics]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/expire-metrics mocked-expire-metrics]
       (is (= 204 ((nimrod-app (request :delete "/logs/1/gauges" {:age 0})) :status)))
       )
     )
@@ -62,7 +62,7 @@
 
 (deftest delete-metrics-by-tags
   (letfn [(mocked-remove-metrics [this log-id tags] (is (= "1" log-id)) (is (= #{"tag1"} tags)))]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/remove-metrics mocked-remove-metrics]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/remove-metrics mocked-remove-metrics]
       (is (= 204 ((nimrod-app (request :delete "/logs/1/gauges" {:tags "tag1"})) :status)))
       )
     )
@@ -70,7 +70,7 @@
 
 (deftest read-metric
   (letfn [(mocked-read-metric [this log-id metric-id] (is (= "1" log-id)) (is (= "m" metric-id)) {:value "value"})]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/read-metric mocked-read-metric]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/read-metric mocked-read-metric]
       (is (= {:value "value"} (read-json ((nimrod-app (request :get "/logs/1/gauges/m")) :body))))
       )
     )
@@ -78,7 +78,7 @@
 
 (deftest delete-metric
   (letfn [(mocked-remove-metric [this log-id metric-id] (is (= "1" log-id)) (is (= "m" metric-id)))]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/remove-metric mocked-remove-metric]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/remove-metric mocked-remove-metric]
       (is (= 204 ((nimrod-app (request :delete "/logs/1/gauges/m")) :status)))
       )
     )
@@ -86,7 +86,7 @@
 
 (deftest reset-history
   (letfn [(mocked-reset-history [this log-id metric-id limit] (is (= "1" log-id)) (is (= "m" metric-id)) (is (= 1 limit)))]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/reset-history mocked-reset-history]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/reset-history mocked-reset-history]
       (is (= 204 ((nimrod-app (request :post "/logs/1/gauges/m/history" {:limit "1"})) :status)))
       )
     )
@@ -94,7 +94,7 @@
 
 (deftest read-history
   (letfn [(mocked-read-history [this log-id metric-id tags] (is (= "1" log-id)) (is (= "m" metric-id)) {:value "value"})]
-    (binding [nimrod.core.metrics/store mocked-store nimrod.core.metrics/read-history mocked-read-history]
+    (binding [nimrod.core.metrics/metrics mocked-metrics nimrod.core.metrics/read-history mocked-read-history]
       (is (= {:value "value"} (read-json ((nimrod-app (request :get "/logs/1/gauges/m/history")) :body))))
       )
     )

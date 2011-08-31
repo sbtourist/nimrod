@@ -32,8 +32,8 @@
 (defn process [log line]
   (try
     (if-let [extracted (extract line)]
-      (if-let [metrics (store (keyword (extracted :metric)))]
-        (set-metric metrics log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
+      (if-let [actual (metrics (keyword (extracted :metric)))]
+        (set-metric actual log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
         (log/warn (str "No metric with name: " (extracted :metric)))
         )
       )
