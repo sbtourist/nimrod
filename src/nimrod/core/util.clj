@@ -1,7 +1,9 @@
 (ns nimrod.core.util
  (:use [clojure.contrib.logging :as log])
- (:import [java.text SimpleDateFormat] [java.util Date])
+ (:import [java.text SimpleDateFormat] [java.util Date] [java.util.concurrent TimeUnit])
  )
+
+(defonce date-pattern "yyyy-MM-dd'T'HH:mm:ssz")
 
 (defn new-agent [state]
   (let [a (agent state)]
@@ -11,10 +13,22 @@
     )
   )
 
-(defn date-string [t]
-  (.format (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssz") (Date. t))
+(defn date-to-string [t]
+  (.format (SimpleDateFormat. date-pattern) (Date. t))
   )
+
+(defn string-to-date [d]
+  (.getTime (.parse (SimpleDateFormat. date-pattern) d))
+  )
+
+(defn seconds [t] (.toMillis (TimeUnit/SECONDS) t))
+
+(defn minutes [t] (.toMillis (TimeUnit/MINUTES) t))
+
+(defn hours [t] (.toMillis (TimeUnit/HOURS) t))
+
+(defn days [t] (.toMillis (TimeUnit/DAYS) t))
 
 (defn unrationalize [n] (if (ratio? n) (float n) n))
 
-(defn display [m t] (reduce conj (sorted-map :date (date-string t)) (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))
+(defn display [m] (reduce conj (sorted-map) (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))

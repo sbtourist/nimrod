@@ -84,9 +84,9 @@
   )
 
 (deftest reset-metric-history
-  (letfn [(mocked-reset-history [type log-id metric-id limit] (is (= gauge type)) (is (= "1" log-id)) (is (= "m" metric-id)) (is (= 1 limit)))]
+  (letfn [(mocked-reset-history [type log-id metric-id age] (is (= gauge type)) (is (= "1" log-id)) (is (= "m" metric-id)) (is (= 1000 age)))]
     (binding [nimrod.core.metrics/reset-history mocked-reset-history]
-      (is (= 204 ((nimrod-app (request :post "/logs/1/gauges/m/history" {:limit "1"})) :status)))
+      (is (= 204 ((nimrod-app (request :post "/logs/1/gauges/m/history" {:age "1000"})) :status)))
       )
     )
   )

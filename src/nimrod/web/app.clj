@@ -132,10 +132,10 @@
       )
     )
 
-  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id limit]
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+"] [log-id metric-type metric-id age]
     (if-let [metric (type-of metric-type)]
       (do 
-        (reset-history metric log-id metric-id (Long/parseLong limit))
+        (reset-history metric log-id metric-id (Long/parseLong age))
         (std-response :no-content)
         )
       (std-response :error {:error (str "Bad metric type: " metric-type)})

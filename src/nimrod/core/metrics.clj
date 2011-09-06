@@ -23,7 +23,7 @@
   )
 
 (defn- create-metric []
-  (new-agent {:history (create-history 100) :computed-value nil :displayed-value nil :update-time nil})
+  (new-agent {:history (create-history (days 1)) :computed-value nil :displayed-value nil :update-time nil})
   )
 
 (defn- get-or-create-metric [values metric-ns metric-id]
@@ -45,7 +45,7 @@
     (let [values (metrics type) metric (get-or-create-metric values metric-ns metric-id)]
       (send metric (fn [current _] (let [t (System/currentTimeMillis)
                                          computed (compute type metric-id timestamp (current :computed-value) value tags)
-                                         displayed (display computed t)
+                                         displayed (assoc (display computed) :date (date-to-string t))
                                          history (update-history (current :history) displayed)]
                                      {:history history :computed-value computed :displayed-value displayed :update-time t}
                                      )) nil
@@ -125,11 +125,11 @@
     )
   )
 
-(defn reset-history [type metric-ns metric-id limit]
+(defn reset-history [type metric-ns metric-id age]
   (dosync
     (let [values (metrics type)]
       (let [metric (get-or-create-metric values metric-ns metric-id)]
-        (send metric conj {:history (create-history limit)})
+        (send metric conj {:history (create-history age)})
         )
       )
     )

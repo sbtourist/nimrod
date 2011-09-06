@@ -42,8 +42,8 @@
     )
   )
 
-(defn- reset-alert-history [alert-ns alert-id limit]
-  (reset-history alert alert-ns alert-id limit)
+(defn- reset-alert-history [alert-ns alert-id age]
+  (reset-history alert alert-ns alert-id age)
   )
 
 (defn- read-gauge [gauge-ns gauge-id]
@@ -72,8 +72,8 @@
     )
   )
 
-(defn- reset-gauge-history [gauge-ns gauge-id limit]
-  (reset-history gauge gauge-ns gauge-id limit)
+(defn- reset-gauge-history [gauge-ns gauge-id age]
+  (reset-history gauge gauge-ns gauge-id age)
   )
 
 (defn- remove-gauge [gauge-ns gauge-id]
@@ -126,8 +126,8 @@
     )
   )
 
-(defn- reset-counter-history [counter-ns counter-id limit]
-  (reset-history counter counter-ns counter-id limit)
+(defn- reset-counter-history [counter-ns counter-id age]
+  (reset-history counter counter-ns counter-id age)
   )
 
 (defn- read-timer [timer-ns timer-id]
@@ -168,8 +168,8 @@
     )
   )
 
-(defn- reset-timer-history [timer-ns timer-id limit]
-  (reset-history timer timer-ns timer-id limit)
+(defn- reset-timer-history [timer-ns timer-id age]
+  (reset-history timer timer-ns timer-id age)
   )
 
 (deftest alert-metrics
@@ -216,18 +216,18 @@
 
 (deftest alert-history
   (testing "Reset alert history"
-    (reset-alert-history "alert-history" "1" 2)
+    (reset-alert-history "alert-history" "1" 3000)
     )
-  (testing "Alert history under limit"
+  (testing "Alert history under age"
     (update-alert "alert-history" "1" "1" "v1")
     (update-alert "alert-history" "1" "2" "v2")
     (is (= 1 ((first (read-alert-history "alert-history" "1")) :timestamp)))
     (is (= 2 ((second (read-alert-history "alert-history" "1")) :timestamp)))
     )
-  (testing "Alert history over limit"
+  (testing "Alert history over age"
+    (Thread/sleep 5000)
     (update-alert "alert-history" "1" "3" "v3")
-    (is (= 2 ((first (read-alert-history "alert-history" "1")) :timestamp)))
-    (is (= 3 ((second (read-alert-history "alert-history" "1")) :timestamp)))
+    (is (= 3 ((first (read-alert-history "alert-history" "1")) :timestamp)))
     )
   )
 
@@ -288,18 +288,18 @@
 
 (deftest gauge-history
   (testing "Reset gauge history"
-    (reset-gauge-history "gauge-history" "1" 2)
+    (reset-gauge-history "gauge-history" "1" 3000)
     )
-  (testing "Gauge history under limit"
+  (testing "Gauge history under age"
     (update-gauge "gauge-history" "1" "1" "1")
     (update-gauge "gauge-history" "1" "2" "2")
     (is (= 1 ((first (read-gauge-history "gauge-history" "1")) :timestamp)))
     (is (= 2 ((second (read-gauge-history "gauge-history" "1")) :timestamp)))
     )
-  (testing "Gauge history over limit"
+  (testing "Gauge history over age"
+    (Thread/sleep 5000)
     (update-gauge "gauge-history" "1" "3" "3")
-    (is (= 2 ((first (read-gauge-history "gauge-history" "1")) :timestamp)))
-    (is (= 3 ((second (read-gauge-history "gauge-history" "1")) :timestamp)))
+    (is (= 3 ((first (read-gauge-history "gauge-history" "1")) :timestamp)))
     )
   )
 
@@ -364,18 +364,18 @@
 
 (deftest counter-history
   (testing "Reset counter history"
-    (reset-counter-history "counter-history" "1" 2)
+    (reset-counter-history "counter-history" "1" 3000)
     )
-  (testing "Counter history under limit"
+  (testing "Counter history under age"
     (update-counter "counter-history" "1" "1" "1")
     (update-counter "counter-history" "1" "2" "2")
     (is (= 1 ((first (read-counter-history "counter-history" "1")) :timestamp)))
     (is (= 2 ((second (read-counter-history "counter-history" "1")) :timestamp)))
     )
-  (testing "Counter history over limit"
+  (testing "Counter history over age"
+    (Thread/sleep 5000)
     (update-counter "counter-history" "1" "3" "3")
-    (is (= 2 ((first (read-counter-history "counter-history" "1")) :timestamp)))
-    (is (= 3 ((second (read-counter-history "counter-history" "1")) :timestamp)))
+    (is (= 3 ((first (read-counter-history "counter-history" "1")) :timestamp)))
     )
   )
 
@@ -450,18 +450,18 @@
 
 (deftest timer-history
   (testing "Reset timer history"
-    (reset-timer-history "timer-history" "1" 2)
+    (reset-timer-history "timer-history" "1" 3000)
     )
-  (testing "Timer history under limit"
+  (testing "Timer history under age"
     (update-timer "timer-history" "1" "1" "start")
     (update-timer "timer-history" "1" "2" "stop")
     (is (= 1 ((first (read-timer-history "timer-history" "1")) :timestamp)))
     (is (= 2 ((second (read-timer-history "timer-history" "1")) :timestamp)))
     )
-  (testing "Timer history over limit"
+  (testing "Timer history over age"
+    (Thread/sleep 5000)
     (update-timer "timer-history" "1" "3" "start")
-    (is (= 2 ((first (read-timer-history "timer-history" "1")) :timestamp)))
-    (is (= 3 ((second (read-timer-history "timer-history" "1")) :timestamp)))
+    (is (= 3 ((first (read-timer-history "timer-history" "1")) :timestamp)))
     )
   )
 
