@@ -9,6 +9,8 @@
   )
 
 (defn create-history
+  ([]
+    {:age (hours 1) :size 0 :values []})
   ([age]
     {:age age :size 0 :values []})
   ([age value]
