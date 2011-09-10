@@ -23,7 +23,7 @@
   )
 
 (defn- create-metric []
-  (new-agent {:history (create-history) :computed-value nil :displayed-value nil :update-time nil})
+  (new-agent {:history (create-history) :computed-value nil :displayed-value {} :update-time (System/currentTimeMillis)})
   )
 
 (defn- get-or-create-metric [values metric-ns metric-id]
