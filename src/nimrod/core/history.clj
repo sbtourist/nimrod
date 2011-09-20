@@ -2,15 +2,21 @@
  (:use [nimrod.core.util])
  )
 
+(defonce default-history-age (atom (days 1)))
+
 (defn- expire [values age]
   (let [now (System/currentTimeMillis)]
     (into [] (filter #(>= age (- now (string-to-date (%1 :date)))) values))
     )
   )
 
+(defn set-default-history-age [age] 
+  (reset! default-history-age age)
+  )
+
 (defn create-history
   ([]
-    {:age (hours 1) :size 0 :values []})
+    {:age @default-history-age :size 0 :values []})
   ([age]
     {:age age :size 0 :values []})
   ([age value]
