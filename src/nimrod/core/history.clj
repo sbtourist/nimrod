@@ -4,9 +4,24 @@
 
 (defonce default-history-age (atom (days 1)))
 
+(defn- smart-remove [satisfies? coll]
+  (if (seq coll) 
+    (loop [index 0]
+      (if (< index (count coll))
+        (if (satisfies? (coll index))
+          (recur (inc index))
+          (subvec coll index)
+          )
+        []
+        )
+      )
+    coll
+    )
+  )
+
 (defn- expire [values age]
-  (let [now (System/currentTimeMillis)]
-    (into [] (filter #(>= age (- now (string-to-date (%1 :date)))) values))
+  (let [now (System/currentTimeMillis) expired? #(<= age (- now (string-to-date (%1 :date))))]
+    (smart-remove expired? values)
     )
   )
 
