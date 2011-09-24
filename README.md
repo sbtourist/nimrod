@@ -192,7 +192,7 @@ Elapsed time will be computed over the provided timestamps above (in the example
 
 # Feedback
 
-Contact me on [twitter](http://twitter.com/sbtourist).
+For everything Nimrod-related, join the nimrod-user group: http://groups.google.com/group/nimrod-user
 
 # License
 
