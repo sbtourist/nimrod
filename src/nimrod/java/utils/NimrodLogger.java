@@ -1,4 +1,4 @@
-package nimrod.utils;
+package nimrod.java.utils;
 
 import com.google.common.base.Joiner;
 import java.util.Date;
@@ -8,7 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * 
+ * Simple logging class based on SLF4J providing the following features:
+ * <ul>
+ * <li>Ad-hoc methods to log alerts, counters, gauges and metrics with standard log levels.</li>
+ * <li>Support for metrics tags.</li>
+ * <li>Support for prefixing and suffixing metrics names, either with a custom value or the current thread id.</li>
+ * </ul>
  */
 public class NimrodLogger {
 
