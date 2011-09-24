@@ -12,14 +12,14 @@ It currently provides the following features:
 
 * On-the-fly registration of logs to process.
 * Almost real-time logs processing for metrics extraction.
-* Different types of metrics with basic statistical information attached and history management.
+* Different types of metrics with fundamental statistical information and time-based history management.
 * Web-based, Javascript-friendly JSON-over-HTTP server, with default support for Cross Origin Resource Sharing on GET requests.
 
 # Usage
 
 ## Download or Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.1-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.2-standalone.jar).
 
 Otherwise, you can check it out from sources and build by yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
@@ -36,9 +36,13 @@ Once you have built the Nimrod jar, you can easily start it as follows (replace 
 This will start the Nimrod server and log processing.
 
 Logs can be pre-registered at startup by configuring a *nimrod.properties* file placed in the same directory you start Nimrod,
-which must contain the *nimrod.logs* property with a comma-separated list of log paths with related intervals (in milliseconds), as follows:
+which must contain the *nimrod.logs* property with a comma-separated list of log paths with related intervals (in milliseconds) separated by colon, as follows:
 
     nimrod.logs = log1:interval1,log2:interval2, ...
+
+The *nimrod.properties* file also provides the following configuration settings:
+
+* nimrod.history.age : The default history age for newly created metrics, in milliseconds (defaults to 1 day).
 
 Please note that Nimrod must be started on the same computer hosting the logs to listen to and process.
 
@@ -109,11 +113,12 @@ And browse through the history by tags, providing again the comma separated list
 
     GET /logs/log_id/metric_type/metric_id/history?tags=tags_list
 
-Metric history and its depth can be reset as follows:
+Each metric history has a time-based expiration policy: metric values whose insertion date is older than a given age time will be removed from the history.
+The history age can be customized as follows:
 
-    POST /logs/log_id/metric_type/metric_id/history?limit=history_limit
+    POST /logs/log_id/metric_type/metric_id/history?age=history_age
 
-Where *history_limit* is the new maximum number of history entries.
+Where *history_age* is the new maximum age for metric values, in milliseconds.
 
 ## Clean-up
 
