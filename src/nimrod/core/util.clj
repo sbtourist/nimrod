@@ -1,11 +1,11 @@
 (ns nimrod.core.util
  (:use 
-   [clojure.contrib.logging :as log]
-   [clojure.contrib.singleton :as singleton])
- (:import [java.text SimpleDateFormat] [java.util Date] [java.util.concurrent TimeUnit])
+   [clojure.tools.logging :as log])
+ (:import 
+   [java.text SimpleDateFormat] [java.util Date] [java.util.concurrent TimeUnit])
  )
 
-(def get-simple-date-format (singleton/per-thread-singleton #(SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssz")))
+(def simple-date-format (proxy [ThreadLocal] [] (initialValue [] (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ssz"))))
 
 (defn new-agent [state]
   (let [a (agent state)]
@@ -16,11 +16,11 @@
   )
 
 (defn date-to-string [t]
-  (.format (get-simple-date-format) (Date. t))
+  (.format (.get simple-date-format) (Date. t))
   )
 
 (defn string-to-date [d]
-  (.getTime (.parse (get-simple-date-format) d))
+  (.getTime (.parse (.get simple-date-format) d))
   )
 
 (defn seconds [t] (.toMillis (TimeUnit/SECONDS) t))

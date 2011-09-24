@@ -1,9 +1,10 @@
 (ns nimrod.conf.loader
  (:use
    [clojure.string :as string :only [split]]
-   [clojure.contrib.properties :as props]
+   [clojure.java.io :as io]
    [nimrod.core.history]
    [nimrod.log.tailer])
+ (:import [java.util Properties])
  )
 
 (defn- load-logs [props]
@@ -32,8 +33,11 @@
   )
 
 (defn load-props [source]
-  (let [props (props/read-properties source)]
-    (load-logs props)
-    (load-history-age props)
+  (with-open [stream (io/input-stream source)]
+    (let [props (Properties.)]
+      (.load props stream)
+      (load-logs props)
+      (load-history-age props)
+      )
     )
   )

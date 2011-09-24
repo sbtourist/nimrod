@@ -1,7 +1,7 @@
 (ns nimrod.log.processor
  (:use
    [clojure.string :as string :only [split]]
-   [clojure.contrib.logging :as log]
+   [clojure.tools.logging :as log]
    [nimrod.core.metrics])
  (:refer-clojure :exclude [split])
  )

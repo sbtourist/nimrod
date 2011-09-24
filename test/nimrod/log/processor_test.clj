@@ -13,7 +13,7 @@
 
 (deftest process-log-line
   (testing "Process full log line"
-    (binding [nimrod.core.metrics/set-metric test-set-metric]
+    (with-redefs [nimrod.core.metrics/set-metric test-set-metric]
       (process "log" "[nimrod][1][alert][name][value][tag1,tag2]")
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
@@ -25,7 +25,7 @@
       )
     )
   (testing "Process full log line with interleaved text"
-    (binding [nimrod.core.metrics/set-metric test-set-metric]
+    (with-redefs [nimrod.core.metrics/set-metric test-set-metric]
       (process "log" "this[nimrod]is[1]an[alert]interleaved[name]text[value]string[tag1,tag2]!")
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
@@ -37,7 +37,7 @@
       )
     )
   (testing "Process log line with no tags"
-    (binding [nimrod.core.metrics/set-metric test-set-metric]
+    (with-redefs [nimrod.core.metrics/set-metric test-set-metric]
       (process "log" "[nimrod][1][alert][name][value]")
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
@@ -49,21 +49,21 @@
       )
     )
   (testing "No log line processing due to missing prefix"
-    (binding [nimrod.core.metrics/set-metric test-set-metric]
+    (with-redefs [nimrod.core.metrics/set-metric test-set-metric]
       (process "log" "[1][alert][name][value]")
       (is (nil? @test-metric))
       (reset! test-metric nil)
       )
     )
   (testing "No log line processing due to bad timestamp"
-    (binding [nimrod.core.metrics/set-metric test-set-metric]
+    (with-redefs [nimrod.core.metrics/set-metric test-set-metric]
       (process "log" "[nimrod][bad timestamp][alert][name][value]")
       (is (nil? @test-metric))
       (reset! test-metric nil)
       )
     )
   (testing "No log line processing due to bad metric"
-    (binding [nimrod.core.metrics/set-metric test-set-metric]
+    (with-redefs [nimrod.core.metrics/set-metric test-set-metric]
       (process "log" "[nimrod][1][bad metric][name][value]")
       (is (nil? @test-metric))
       (reset! test-metric nil)

@@ -1,8 +1,8 @@
 (ns nimrod.web.app
  (:use
    [clojure.string :as string :only [split]]
-   [clojure.contrib.logging :as log]
-   [clojure.contrib.json :as json]
+   [clojure.tools.logging :as log]
+   [clojure.data.json :as json]
    [compojure.core :as http]
    [compojure.route :as route]
    [compojure.handler :as handler]

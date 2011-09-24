@@ -1,6 +1,6 @@
 (ns nimrod.web.server
  (:use
-   [clojure.contrib.logging :as log]
+   [clojure.tools.logging :as log]
    [ring.adapter.jetty]
    [nimrod.core.util]
    [nimrod.conf.loader]

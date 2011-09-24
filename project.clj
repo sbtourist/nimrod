@@ -1,8 +1,9 @@
 (defproject nimrod "0.2-SNAPSHOT"
  :description "Not Invasive MetRics, Oh Dear!"
  :dependencies [
-                [org.clojure/clojure "1.2.1"]
-                [org.clojure/clojure-contrib "1.2.0"]
+                [org.clojure/clojure "1.3.0"]
+                [org.clojure/data.json "0.1.1"]
+                [org.clojure/tools.logging "0.2.0"]
                 [compojure "0.6.5"]
                 [ring/ring-core "0.3.11"]
                 [ring/ring-jetty-adapter "0.3.11"]
