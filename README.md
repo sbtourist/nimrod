@@ -223,7 +223,7 @@ For example, the following method call (in Java):
 
 Will actually produce the following Nimrod log:
 
-[nimrod][123456789][gauge][requests][100][service:acme]
+    [nimrod][123456789][gauge][requests][100][service:acme]
 
 Please note that the timestamp value is automatically added based on the current time of logging.
 
