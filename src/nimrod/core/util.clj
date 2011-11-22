@@ -32,5 +32,3 @@
 (defn days [t] (.toMillis (TimeUnit/DAYS) t))
 
 (defn unrationalize [n] (if (ratio? n) (float n) n))
-
-(defn display [m] (reduce conj (sorted-map) (map #(vector %1 (unrationalize %2)) (keys m) (vals m))))
