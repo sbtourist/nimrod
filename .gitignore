@@ -10,3 +10,4 @@ test.sh
 nimrod.properties
 /.lein-failures
 /target/
+/nimrod-data/

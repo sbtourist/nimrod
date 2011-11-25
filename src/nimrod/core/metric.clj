@@ -1,7 +1,8 @@
 (ns nimrod.core.metric
  (:use [nimrod.core.stat]
    [nimrod.core.store]
-   [nimrod.core.util]))
+   [nimrod.core.util]
+   [clojure.tools.logging :as log]))
 
 (defprotocol MetricType
   (name-of [this])
@@ -162,7 +163,9 @@
 
 (defn compute-metric [type metric-ns metric-id timestamp value tags]
   (send metric-agent (fn [store] 
-                (let [current-metric (read-metric store metric-ns (name-of type) metric-id)
-                      new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
-                  (set-metric store metric-ns (name-of type) metric-id new-metric)
-                  store))))
+                       (let [current-metric (read-metric store metric-ns (name-of type) metric-id)
+                             new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
+                         (try 
+                           (set-metric store metric-ns (name-of type) metric-id new-metric) 
+                           (catch Exception ex (log/error (.getMessage ex) ex)))
+                         store))))

@@ -20,7 +20,11 @@
           (throw (IllegalStateException. (str "Bad logs configuration: " log-data))))))))
 
 (defn- setup-store [props]
-  (setup-metric-store (new-memory-store)))
+  (let [store-property (or (.getProperty props "nimrod.store") "memory")]
+    (condp = store-property
+      "memory" (setup-metric-store (new-memory-store))
+      "disk" (setup-metric-store (new-disk-store "nimrod-data/db"))
+      (throw (IllegalStateException. (str "Bad store configuration: " store-property))))))
 
 (defn setup [source]
   (with-open [stream (io/input-stream source)]

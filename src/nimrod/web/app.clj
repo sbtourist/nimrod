@@ -2,7 +2,7 @@
  (:use
    [clojure.string :as string :only [split]]
    [clojure.tools.logging :as log]
-   [clojure.data.json :as json]
+   [cheshire.core :as json]
    [compojure.core :as http]
    [compojure.route :as route]
    [compojure.handler :as handler]
@@ -39,7 +39,7 @@
   ([status body]
     (std-response status std-response-headers body))
   ([status headers body]
-    {:headers headers :status (response-codes status) :body (if body (json/json-str body) nil)}))
+    {:headers headers :status (response-codes status) :body (if body (json/generate-string body) nil)}))
 
 (defn- cors-response 
   ([status]
