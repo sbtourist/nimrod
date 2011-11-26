@@ -48,7 +48,7 @@
     (std-response status cors-response-headers body)))
 
 (defn- redirect-response [url]
-    (response/redirect url))
+  (response/redirect url))
 
 (defn- wrap-errors [handler]
   (fn [req]
@@ -59,7 +59,7 @@
         (std-response :error {:error (.getMessage ex)})))))
 
 (http/defroutes nimrod-routes
-
+  
   (http/POST "/logs" [file interval]
     (let [tailer (start-tailer file (Long/parseLong (or interval "1000")))]
       (std-response :ok {tailer file})))
@@ -70,7 +70,7 @@
   (http/DELETE "/logs/:log-id" [log-id]
     (stop-tailer log-id)
     (std-response :no-content))
-
+  
   (http/GET ["/logs/:log-id/:metric-type"] [log-id metric-type]
     (if-let [metric (type-of metric-type)]
       (if-let [result (list-metrics @metric-agent log-id (name-of metric))]
@@ -79,29 +79,34 @@
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/GET ["/logs/:log-id/:metric-type/"] [log-id metric-type :as request]
     (redirect-response (drop-last-char (request :uri))))
-
+  
   (http/GET ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
     (if-let [metric (type-of metric-type)]
       (if-let [result (read-metric @metric-agent log-id (name-of metric) metric-id)]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id" :age #"\d+"] [log-id metric-type metric-id age]
+  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id"] [log-id metric-type metric-id]
     (if-let [metric (type-of metric-type)]
-      (do
-        (if (not (nil? age))
-          (remove-metrics @metric-agent log-id (name-of metric) metric-id (convert age))
-          (remove-metric @metric-agent log-id (name-of metric) metric-id))
+      (do 
+        (remove-metric @metric-agent log-id (name-of metric) metric-id)
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
-
+  
+  
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+" :tags #"[^/?#]+"] [log-id metric-type metric-id age tags]
     (if-let [metric (type-of metric-type)]
       (if-let [result (read-metrics @metric-agent log-id (name-of metric) metric-id (or (convert age) Long/MAX_VALUE) (or (extract tags) #{}))]
         (cors-response :ok {:size (count result) :values result})
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-
+  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id/history" :age #"\d+"] [log-id metric-type metric-id age]
+    (if-let [metric (type-of metric-type)]
+      (do
+        (remove-metrics @metric-agent log-id (name-of metric) metric-id (convert age))
+        (std-response :no-content))
+      (std-response :error {:error (str "Bad metric type: " metric-type)})))
+  
   (route/not-found ""))
 
 (defonce nimrod-app
