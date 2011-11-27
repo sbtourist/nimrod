@@ -79,7 +79,7 @@
     (std-response :ok (map path-of (list-types @metric-agent log-id))))
   (http/GET "/logs/:log-id/" [:as request]
     (redirect-response (drop-last-char (request :uri))))
-  (http/DELETE "/logs/:log-id" [log-id]
+  (http/POST "/logs/:log-id/stop" [log-id]
     (stop-tailer log-id)
     (std-response :no-content))
   
