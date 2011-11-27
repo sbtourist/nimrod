@@ -112,10 +112,10 @@
         (cors-response :ok {:size (count result) :values result})
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+"] [log-id metric-type metric-id age]
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :age #"\d+"] [log-id metric-type metric-id age]
     (if-let [metric-type (type-of metric-type)]
       (do
-        (remove-metrics @metric-agent log-id metric-type metric-id (convert age))
+        (remove-metrics @metric-agent log-id metric-type metric-id (or (convert age) Long/MAX_VALUE))
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
