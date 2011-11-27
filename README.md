@@ -50,13 +50,14 @@ And with tags:
 ## Alerts
 
 String values representing a generic message at a given time.
-It also provides the following statistical information:
-
-* Average and variance of time intervals between alert updates.
 
 Here's a log line representing an alert value:
 
     [nimrod][123456789][alert][top_player][sergio]
+
+The Nimrod metrics server also computes and provides the following statistical information:
+
+* Average and variance of the elapsed time.
 
 ## Gauges
 
@@ -191,7 +192,7 @@ History can be "pruned" by deleting values whose latest update happened before a
 
 Finally, uninteresting metrics can be completely deleted as follows:
 
-DELETE /logs/log_id/metric_type/metric_id
+    DELETE /logs/log_id/metric_type/metric_id
 
 # Languages support
 
