@@ -79,7 +79,7 @@
                 (sql/with-query-results 
                   latest-metric-values
                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? ORDER BY timestamp DESC LIMIT 1" (metric :ns) (metric :type) (metric :id)] 
-                  (json/parse-string ((first latest-metric-values) :metric) true true))]
+                  (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
             (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value)))))))
   (set-metric [this metric-ns metric-type metric-id metric]
     (sql/with-connection db (sql/transaction (sql/update-or-insert-values 
@@ -109,7 +109,7 @@
                               r 
                               ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)]
                               (if (seq r) 
-                                (into [] (for [metric (map #(json/parse-string (%1 :metric) true true) r) :when (cset/subset? tags (metric :tags))] metric))
+                                (into [] (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] metric))
                                 nil))))
   (list-metrics [this metric-ns metric-type]
     (sql/with-connection db
