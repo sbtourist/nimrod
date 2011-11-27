@@ -16,20 +16,20 @@
 (defonce std-response-headers {"Content-Type" "application/json"})
 (defonce cors-response-headers {"Content-Type" "application/json" "Access-Control-Allow-Origin" "*"})
 
-(defn- type-of [metric]
-  (condp = metric
-    "alerts" alert
-    "gauges" gauge
-    "counters" counter
-    "timers" timer
+(defn- type-of [metric-path]
+  (condp = metric-path
+    "alerts" (name-of alert)
+    "gauges" (name-of gauge)
+    "counters" (name-of counter)
+    "timers" (name-of timer)
     nil))
 
-(defn- path-of [metric]
-  (condp = metric
-    "nimrod.core.metric.Alert" "alerts"
-    "nimrod.core.metric.Gauge" "gauges"
-    "nimrod.core.metric.Counter" "counters"
-    "nimrod.core.metric.Timer" "timers"
+(defn- path-of [metric-type]
+  (condp = metric-type
+    (name-of alert) "alerts"
+    (name-of gauge) "gauges"
+    (name-of counter) "counters"
+    (name-of timer) "timers"
     nil))
 
 (defn- convert [age]
@@ -84,8 +84,8 @@
     (std-response :no-content))
   
   (http/GET ["/logs/:log-id/:metric-type"] [log-id metric-type]
-    (if-let [metric (type-of metric-type)]
-      (if-let [result (list-metrics @metric-agent log-id (name-of metric))]
+    (if-let [metric-type (type-of metric-type)]
+      (if-let [result (list-metrics @metric-agent log-id metric-type)]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
@@ -93,29 +93,29 @@
     (redirect-response (drop-last-char (request :uri))))
   
   (http/GET ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-    (if-let [metric (type-of metric-type)]
-      (if-let [result (read-metric @metric-agent log-id (name-of metric) metric-id)]
+    (if-let [metric-type (type-of metric-type)]
+      (if-let [result (read-metric @metric-agent log-id metric-type metric-id)]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/DELETE ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-    (if-let [metric (type-of metric-type)]
+    (if-let [metric-type (type-of metric-type)]
       (do 
-        (remove-metric @metric-agent log-id (name-of metric) metric-id)
+        (remove-metric @metric-agent log-id metric-type metric-id)
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+" :tags #"[^/?#]+"] [log-id metric-type metric-id age tags]
-    (if-let [metric (type-of metric-type)]
-      (if-let [result (read-metrics @metric-agent log-id (name-of metric) metric-id (or (convert age) Long/MAX_VALUE) (or (extract tags) #{}))]
+    (if-let [metric-type (type-of metric-type)]
+      (if-let [result (read-metrics @metric-agent log-id metric-type metric-id (or (convert age) Long/MAX_VALUE) (or (extract tags) #{}))]
         (cors-response :ok {:size (count result) :values result})
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/DELETE ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+"] [log-id metric-type metric-id age]
-    (if-let [metric (type-of metric-type)]
+    (if-let [metric-type (type-of metric-type)]
       (do
-        (remove-metrics @metric-agent log-id (name-of metric) metric-id (convert age))
+        (remove-metrics @metric-agent log-id metric-type metric-id (convert age))
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
