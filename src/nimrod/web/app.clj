@@ -24,6 +24,14 @@
     "timers" timer
     nil))
 
+(defn- path-of [metric]
+  (condp = metric
+    "nimrod.core.metric.Alert" "alerts"
+    "nimrod.core.metric.Gauge" "gauges"
+    "nimrod.core.metric.Counter" "counters"
+    "nimrod.core.metric.Timer" "timers"
+    nil))
+
 (defn- convert [age]
   (when (not (nil? age)) (Long/parseLong age)))
 
@@ -67,6 +75,10 @@
     (cors-response :ok (list-tailers)))
   (http/GET "/logs/" [:as request]
     (redirect-response (drop-last-char (request :uri))))
+  (http/GET "/logs/:log-id" [log-id]
+    (std-response :ok (map path-of (list-types @metric-agent log-id))))
+  (http/GET "/logs/:log-id/" [:as request]
+    (redirect-response (drop-last-char (request :uri))))
   (http/DELETE "/logs/:log-id" [log-id]
     (stop-tailer log-id)
     (std-response :no-content))
@@ -86,7 +98,7 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id"] [log-id metric-type metric-id]
+  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
     (if-let [metric (type-of metric-type)]
       (do 
         (remove-metric @metric-agent log-id (name-of metric) metric-id)
@@ -100,7 +112,7 @@
         (cors-response :ok {:size (count result) :values result})
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id/history" :age #"\d+"] [log-id metric-type metric-id age]
+  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+"] [log-id metric-type metric-id age]
     (if-let [metric (type-of metric-type)]
       (do
         (remove-metrics @metric-agent log-id (name-of metric) metric-id (convert age))
