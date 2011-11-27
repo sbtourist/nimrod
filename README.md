@@ -61,33 +61,32 @@ Here's a log line representing an alert value:
 ## Gauges
 
 Number values representing a fixed indicator at a given time.
-It also provides the following statistical information:
-
-* Average and variance of time intervals between measure updates.
-* Average and variance of the measure.
 
 Here's a log line representing a gauge value:
 
     [nimrod][123456789][gauge][current_players][100]
 
+The Nimrod metrics server also computes and provides the following statistical information:
+
+* Average and variance of time intervals between measure updates.
+* Average and variance of the measure.
+
 ## Counters
 
 Number values representing an incrementing value over time, tracking both the latest increment and the overall counter value.
-It also provides the following statistical information:
-
-* Average and variance of time intervals between counter updates.
-* Average and variance of the counter increment.
 
 Here's a log line representing a counter value:
 
     [nimrod][123456789][counter][total_players][100]
 
+The Nimrod metrics server also computes and provides the following statistical information:
+
+* Average and variance of time intervals between counter updates.
+* Average and variance of the counter increment.
+
 ## Timers
 
 Number values representing the elapsed time between start and stop of a given event.
-It also provides the following statistical information:
-
-* Average and variance of the elapsed time.
 
 Here's a log line starting a time computation:
 
@@ -98,6 +97,10 @@ And here's a log line stopping a previously started time computation:
     [nimrod][123456789][timer][login][stop]
 
 Elapsed time will be computed over the provided timestamps above (in the example above, the final value will be 1).
+
+The Nimrod metrics server also computes and provides the following statistical information:
+
+* Average and variance of the elapsed time.
 
 # Usage (referring to the in-progress 0.3 version)
 
@@ -151,7 +154,7 @@ You can query for registered logs too:
 
 And finally stop listening/processing logs:
 
-   POST /logs/log_id/stop
+    POST /logs/log_id/stop
 
 Where *log_id* is the log numeric identifier.
 
@@ -188,7 +191,7 @@ History can be "pruned" by deleting values whose latest update happened before a
 
 Finally, uninteresting metrics can be completely deleted as follows:
 
-     DELETE /logs/log_id/metric_type/metric_id
+DELETE /logs/log_id/metric_type/metric_id
 
 # Languages support
 
