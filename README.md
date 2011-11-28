@@ -25,7 +25,7 @@ metrics "production" is completely decoupled from metrics processing and storage
 Metrics must be printed in a Nimrod-specific format, providing the following information in square brackets:
 
 * The **nimrod** fixed string.
-* The metric **timestamp** (generally in milliseconds, but can really be your preferred measure of time, provided it is always incrementing).
+* The metric **timestamp**, indicating *current unix time in milliseconds* and always *monotonic*.
 * The metric **type**, among one of:
  * *alert*
  * *gauge*
