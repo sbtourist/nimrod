@@ -68,8 +68,8 @@
 
 (http/defroutes nimrod-routes
   
-  (http/POST "/logs" [file interval]
-    (let [tailer (start-tailer file (Long/parseLong (or interval "1000")))]
+  (http/POST ["/logs/:log-id/start" :log-id #"[^/?#]+"] [log-id file interval]
+    (let [tailer (start-tailer log-id file (Long/parseLong (or interval "1000")))]
       (std-response :ok {tailer file})))
   (http/GET "/logs" []
     (cors-response :ok (list-tailers)))

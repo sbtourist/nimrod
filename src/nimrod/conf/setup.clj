@@ -11,9 +11,9 @@
   (if-let [logs-property (.getProperty props "nimrod.logs")]
     (loop [logs (string/split logs-property #",")]
       (let [log-data (string/split (first logs) #":")]
-        (if (= 2 (count log-data))
+        (if (= 3 (count log-data))
           (do
-            (start-tailer (log-data 0) (Long/parseLong (log-data 1)))
+            (start-tailer (log-data 0) (log-data 1) (Long/parseLong (log-data 2)))
             (if-let [other-logs (seq (rest logs))]
               (recur other-logs)
               nil))

@@ -3,6 +3,10 @@
    [clojure.test]
    [nimrod.log.tailer]))
 
+(deftest start-tailer-with-duplicated-id
+  (dosync (alter tailers assoc "1" {:log "log.txt" :tailer nil}))
+  (try (start-tailer "1" "log2.txt" 10) (throw (RuntimeException. "Shouldn't be here!")) (catch IllegalStateException ex)))
+
 (deftest tailers-list
   (dosync (alter tailers assoc "1" {:log "log.txt" :tailer nil}))
   (let [tailers (list-tailers)]

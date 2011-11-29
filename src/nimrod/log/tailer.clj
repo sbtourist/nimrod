@@ -8,7 +8,6 @@
 
 (defonce tailer-buffer-size 4096)
 (defonce tailers (ref {}))
-(defonce tailers-sequence (atom 0))
 
 (defn- create-tailer [id log interval]
   (Tailer.
@@ -24,13 +23,16 @@
     true
     tailer-buffer-size))
 
-(defn start-tailer [log interval]
-  (dosync
-    (let [id (Long/toString (swap! tailers-sequence inc)) tailer (create-tailer id log interval)]
-      (log/info (str "Start listening to log: " log))
-      (doto (Thread. tailer) (.setDaemon true) (.start))
-      (alter tailers assoc id {:log log :tailer tailer})
-      id)))
+(defn start-tailer [id log interval]
+  (let [tailer (create-tailer id log interval)]
+    (log/info (str "Start listening to log: " log))
+    (dosync
+      (if (contains? @tailers id)
+        (throw (IllegalStateException. (str "Duplicated log identifier: " id)))
+        (alter tailers assoc id {:log log :tailer tailer})))
+    (doto 
+      (Thread. tailer) (.setDaemon true) (.start))
+    id))
 
 (defn stop-tailer [id]
   (let [tailer (ref nil)]

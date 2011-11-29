@@ -7,10 +7,10 @@
 
 (deftest setup-logs
     (let [log (atom #{})]
-      (with-redefs [start-tailer #(swap! log conj (str %1 ":" %2))]
+      (with-redefs [start-tailer #(swap! log conj (str %1 ":" %2 ":" %3))]
         (setup "nimrod1.properties")
-        (is (contains? @log "log1:1"))
-        (is (contains? @log "log2:2")))))
+        (is (contains? @log "1:log1:1"))
+        (is (contains? @log "2:log2:2")))))
 
 (deftest setup-memory-store
     (let [setup? (atom false)]
