@@ -4,7 +4,7 @@
                 [org.clojure/clojure "1.3.0"]
                 [org.clojure/java.jdbc "0.1.1"]
                 [org.clojure/tools.logging "0.2.0"]
-                [sbtourist/cheshire "2.0.3_1"]
+                [cheshire "2.0.4"]
                 [compojure "0.6.5"]
                 [ring/ring-core "0.3.11"]
                 [ring/ring-jetty-adapter "0.3.11"]
