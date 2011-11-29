@@ -121,14 +121,20 @@ Nimrod can be configured by editing a *nimrod.properties* file placed in the sam
 
 You can pre-register log files to process and define the metrics storage implementation.
 
-Logs can be pre-registered at startup by providing the *nimrod.logs* property with a comma-separated list of log paths and related intervals (in milliseconds) 
+Logs can be pre-registered at startup by providing the *nimrod.logs* property with a comma-separated list of log identifier, log path and related interval (in milliseconds) 
 separated by colon, as follows:
 
-    nimrod.logs = log1:interval1,log2:interval2, ...
+    nimrod.logs = id1:log1:interval1,id2:log2:interval2, ...
 
-Metrics storage implementation can be configured to be either in-memory or on-disk, by providing the *nimrod.store* property with a value of either _memory_ or _disk_:
+Log identifiers must be unique, otherwise Nimrod will shutdown.
+
+Metrics storage implementation can be configured to be either in-memory (volatile) or on-disk (persistent), 
+by providing the *nimrod.store* property with a value of either _memory_ or _disk_:
 
     nimrod.store = memory|disk.
+
+In case of persistent storage, metrics identifiers should be kept consistent between restarts: they should be configured to always refer to the same
+"logical" file, that is, the file path could change but it should always refer to the same application and/or same set of metrics.
 
 ## Startup
 
@@ -144,10 +150,9 @@ Please note that Nimrod must be started on the same computer hosting the logs to
 
 You can dynamically register the logs you want to listen to and process, by issuing the following request:
 
-    POST /logs?file=log_file&interval=listen_interval
+    POST /logs/log_id/start?file=log_file&interval=listen_interval
 
-You have to provide the path of the log file (*log_file*), and the milliseconds interval among subsequent log reads (*listen_interval*):
-Nimrod will return a JSON object with the log numeric identifier, which you will use later to query for metrics.
+You have to provide the unique log identifier (*log_id*), the path of the log file (*log_file*), and the milliseconds interval among subsequent log reads (*listen_interval*).
 
 You can query for registered logs too:
 
@@ -157,7 +162,7 @@ And finally stop listening/processing logs:
 
     POST /logs/log_id/stop
 
-Where *log_id* is the log numeric identifier.
+Where *log_id* is the log identifier.
 
 ## Metrics management
 
@@ -169,7 +174,7 @@ Nimrod metrics for a given log and metric type can be queried with the following
 
     GET /logs/log_id/metric_type
 
-Here, *log_id* is the log numeric identifier and *metric_type* is the name of the metric type in plural form, that is either:
+Here, *log_id* is the log identifier and *metric_type* is the name of the metric type in plural form, that is either:
 *alerts*, *gauges*, *counters* or *timers*.
 
 Once you have a grasp of available Nimrod metrics by logs and types, a given, specific, Nimrod metric can be queried by issuing the following request:
