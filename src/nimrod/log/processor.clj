@@ -6,8 +6,8 @@
    [nimrod.core.util])
  (:refer-clojure :exclude [split]))
 
-(defonce log-pattern (re-pattern ".*\\[nimrod].*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.*)\\].*"))
-(defonce no-tags-log-pattern (re-pattern ".*\\[nimrod].*\\[(\\d+)\\].*\\[(.+)\\].*\\[(.+)\\].*\\[(.+)\\].*"))
+(defonce log-pattern (re-pattern ".*?\\[nimrod\\].*?\\[(\\d+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*?\\[(.*)\\].*"))
+(defonce no-tags-log-pattern (re-pattern ".*?\\[nimrod\\].*?\\[(\\d+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*"))
 
 (defn- type-of [metric]
   (condp = metric

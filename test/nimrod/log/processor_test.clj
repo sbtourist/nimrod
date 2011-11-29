@@ -19,6 +19,16 @@
       (is (= "value" (@test-metric :value)))
       (is (= #{"tag1" "tag2"} (@test-metric :tags)))
       (reset! test-metric nil)))
+  (testing "Process full log line with nested square brackets"
+    (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
+      (process "log" "[nimrod][1][alert][name][value][[nested],[tag]]")
+      (is (= alert (@test-metric :type)))
+      (is (= "log" (@test-metric :log)))
+      (is (= "1" (@test-metric :timestamp)))
+      (is (= "name" (@test-metric :name)))
+      (is (= "value" (@test-metric :value)))
+      (is (= #{"[nested]" "[tag]"} (@test-metric :tags)))
+      (reset! test-metric nil)))
   (testing "Process full log line with interleaved text"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
       (process "log" "this[nimrod]is[1]an[alert]interleaved[name]text[value]string[tag1,tag2]!")
