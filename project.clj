@@ -10,6 +10,7 @@
                 [ring/ring-jetty-adapter "0.3.11"]
                 [tayler/tayler "1.0"]
                 [org.hsqldb/hsqldb "2.2.6"]
+                [c3p0/c3p0 "0.9.1.2"]
                 [com.google.guava/guava "r09"]
                 [org.slf4j/slf4j-api "1.6.1"]
                 [org.slf4j/slf4j-log4j12 "1.6.1"]

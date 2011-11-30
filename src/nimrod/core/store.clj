@@ -2,9 +2,11 @@
  (:use
    [nimrod.core.util]
    [cheshire.core :as json]
+   [clojure.java.jdbc.internal :as jdbc]
    [clojure.java.jdbc :as sql]
    [clojure.set :as cset]
    [clojure.tools.logging :as log])
+ (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude  (resultset-seq)))
 
 (defprotocol Store
@@ -60,17 +62,21 @@
       (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))
       nil)))
 
-(deftype DiskStore [db memory]
+(deftype DiskStore [connection-factory memory]
   Store
   (init [this]
     (dosync ref-set memory {})
     (try 
-      (sql/with-connection db
+      (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
             "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, metric LONGVARCHAR, PRIMARY KEY (ns,type,id,timestamp))")))
       (catch Exception ex))
-    (sql/with-connection db 
+    (sql/with-connection connection-factory
+      (sql/transaction 
+        (sql/do-prepared 
+          "SET DATABASE TRANSACTION CONTROL MVCC")))
+    (sql/with-connection connection-factory
       (sql/with-query-results 
         all-metrics
         ["SELECT DISTINCT ns, type, id FROM metrics"] 
@@ -82,37 +88,41 @@
                   (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
             (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value)))))))
   (set-metric [this metric-ns metric-type metric-id metric]
-    (sql/with-connection db (sql/transaction (sql/update-or-insert-values 
-                                               "metrics"
-                                               ["ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id (metric :timestamp)]
-                                               {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric)})))
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/update-or-insert-values 
+                         "metrics"
+                         ["ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id (metric :timestamp)]
+                         {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric)})))
     (dosync
       (alter memory assoc-in [metric-ns metric-type metric-id] metric))
     nil)
   (remove-metric [this metric-ns metric-type metric-id]
-    (sql/with-connection db (sql/transaction (sql/delete-rows 
-                                               "metrics" 
-                                               ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id])))
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/delete-rows 
+                         "metrics" 
+                         ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id])))
     (dosync
       (if-let [metrics (get-in @memory [metric-ns metric-type])]
         (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
     nil)
   (remove-metrics [this metric-ns metric-type metric-id age]
-    (sql/with-connection db (sql/transaction (sql/delete-rows 
-                                               "metrics" 
-                                               ["ns=? AND type=? AND id=? AND timestamp<=?" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)])))
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/delete-rows 
+                         "metrics" 
+                         ["ns=? AND type=? AND id=? AND timestamp<=?" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)])))
     nil)
   (read-metric [this metric-ns metric-type metric-id]
     (get-in @memory [metric-ns metric-type metric-id]))
   (read-metrics [this metric-ns metric-type metric-id age tags]
-    (sql/with-connection db (sql/with-query-results 
-                              r 
-                              ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)]
-                              (if (seq r) 
-                                (into [] (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] metric))
-                                nil))))
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/with-query-results 
+                         r 
+                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)]
+                         (if (seq r) 
+                           (into [] (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] metric))
+                           nil)))))
   (list-metrics [this metric-ns metric-type]
-    (sql/with-connection db
+    (sql/with-connection connection-factory
       (sql/transaction (sql/with-query-results 
                          r 
                          ["SELECT DISTINCT id FROM metrics WHERE ns=? AND type=? ORDER BY id" metric-ns metric-type]
@@ -130,6 +140,11 @@
     store))
 
 (defn new-disk-store [path] 
-  (let [store (DiskStore. {:subprotocol "hsqldb" :subname path} (ref {}))]
+  (let [pool (doto (ComboPooledDataSource.)
+               (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
+               (.setJdbcUrl (str "jdbc:hsqldb:file:" path))
+               (.setUser "SA")
+               (.setPassword "")) 
+        store (DiskStore. {:datasource pool} (ref {}))]
     (init store)
     store))
