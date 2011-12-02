@@ -9,13 +9,16 @@
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude  (resultset-seq)))
 
+(defonce default-age Long/MAX_VALUE)
+(defonce default-limit 1000)
+
 (defprotocol Store
   (init [this])
   (set-metric [this metric-ns metric-type metric-id metric])
   (remove-metric [this metric-ns metric-type metric-id])
   (remove-metrics [this metric-ns metric-type metric-id age])
   (read-metric [this metric-ns metric-type metric-id])
-  (read-metrics [this metric-ns metric-type metric-id age tags])
+  (read-metrics [this metric-ns metric-type metric-id tags age limit])
   (list-metrics [this metric-ns metric-type])
   (list-types [this metric-ns]))
 
@@ -47,10 +50,13 @@
     (if-let [current (get-in @store [metric-ns metric-type metric-id :current])]
       current
       nil))
-  (read-metrics [this metric-ns metric-type metric-id age tags]
+  (read-metrics [this metric-ns metric-type metric-id tags age limit]
     (if-let [history (get-in @store [metric-ns metric-type metric-id :history])]
       (let [now (System/currentTimeMillis)
-            metrics (into [] (for [metric (vals history) :while (<= (- now (metric :timestamp)) age) :when (cset/subset? tags (metric :tags))] metric))]
+            metrics (into [] 
+                      (for [metric (take (or limit default-limit) (vals history)) 
+                            :while (<= (- now (metric :timestamp)) (or age default-age)) :when (cset/subset? tags (metric :tags))] 
+                        metric))]
         (if (seq metrics) metrics nil))
       nil))
   (list-metrics [this metric-ns metric-type]
@@ -113,11 +119,12 @@
     nil)
   (read-metric [this metric-ns metric-type metric-id]
     (get-in @memory [metric-ns metric-type metric-id]))
-  (read-metrics [this metric-ns metric-type metric-id age tags]
+  (read-metrics [this metric-ns metric-type metric-id tags age limit]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)]
+                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT ?" 
+                          metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age)) (or limit default-limit)]
                          (if (seq r) 
                            (into [] (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] metric))
                            nil)))))
