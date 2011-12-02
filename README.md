@@ -103,11 +103,11 @@ The Nimrod metrics server also computes and provides the following statistical i
 
 * Average and variance of the elapsed time.
 
-# Usage (referring to the in-progress 0.3 version)
+# Usage
 
 ## Download/Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.2-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.3-standalone.jar).
 
 Otherwise, you can check it out from sources and build by yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
