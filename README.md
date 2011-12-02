@@ -187,9 +187,11 @@ You will always get the latest metric value, but you can also access the metric 
 
     GET /logs/log_id/metric_type/metric_id/history
 
-And browse through the history by tags, providing the comma separated list of tags to match:
+And browse through the history by age and tags, providing the max age and/or comma separated list of tags to match:
 
-    GET /logs/log_id/metric_type/metric_id/history?tags=tags_list
+    GET /logs/log_id/metric_type/metric_id/history?age=max_age&tags=tags_list
+
+History is limited by default at 1000 values, but you can change it by specifying the *limit* query parameter.
 
 History can be "pruned" by deleting values whose latest update happened before a given number of milliseconds:
 
