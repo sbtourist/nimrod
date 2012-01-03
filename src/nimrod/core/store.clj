@@ -7,7 +7,7 @@
    [clojure.set :as cset]
    [clojure.tools.logging :as log])
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
- (:refer-clojure :exclude  (resultset-seq)))
+ (:refer-clojure :exclude (resultset-seq)))
 
 (defonce default-age Long/MAX_VALUE)
 (defonce default-limit 1000)
@@ -16,10 +16,10 @@
   (init [this])
   (set-metric [this metric-ns metric-type metric-id metric])
   (remove-metric [this metric-ns metric-type metric-id])
-  (remove-metrics [this metric-ns metric-type metric-id age])
   (read-metric [this metric-ns metric-type metric-id])
-  (read-metrics [this metric-ns metric-type metric-id tags age limit])
   (list-metrics [this metric-ns metric-type])
+  (read-history [this metric-ns metric-type metric-id tags age limit])
+  (remove-history [this metric-ns metric-type metric-id age] [this metric-ns metric-type age])
   (list-types [this metric-ns]))
 
 (deftype MemoryStore [store]
@@ -39,18 +39,15 @@
       (when-let [metrics (get-in @store [metric-ns metric-type])]
         (alter store assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
     nil)
-  (remove-metrics [this metric-ns metric-type metric-id age]
-    (dosync
-      (when-let [history (get-in @store [metric-ns metric-type metric-id :history])]
-        (let [now (System/currentTimeMillis)
-              new-history (into (sorted-map-by >) (for [metric history :while (<= (- now ((val metric) :timestamp)) age)] metric))]
-          (alter store assoc-in [metric-ns metric-type metric-id :history] new-history))))
-    nil)
   (read-metric [this metric-ns metric-type metric-id]
     (if-let [current (get-in @store [metric-ns metric-type metric-id :current])]
       current
       nil))
-  (read-metrics [this metric-ns metric-type metric-id tags age limit]
+  (list-metrics [this metric-ns metric-type]
+    (if-let [metrics-by-id (get-in @store [metric-ns metric-type])]
+      (into [] (sort (keys metrics-by-id)))
+      nil))
+  (read-history [this metric-ns metric-type metric-id tags age limit]
     (if-let [history (get-in @store [metric-ns metric-type metric-id :history])]
       (let [now (System/currentTimeMillis)
             metrics (into [] 
@@ -59,10 +56,16 @@
                         metric))]
         (if (seq metrics) metrics nil))
       nil))
-  (list-metrics [this metric-ns metric-type]
-    (if-let [metrics (get-in @store [metric-ns metric-type])]
-      (into [] (sort (keys metrics)))
-      nil))
+  (remove-history [this metric-ns metric-type metric-id age]
+    (dosync
+      (when-let [history (get-in @store [metric-ns metric-type metric-id :history])]
+        (let [now (System/currentTimeMillis)
+              new-history (into (sorted-map-by >) (for [metric history :while (<= (- now ((val metric) :timestamp)) age)] metric))]
+          (alter store assoc-in [metric-ns metric-type metric-id :history] new-history))))
+    nil)
+  (remove-history [this metric-ns metric-type age]
+    (doseq [metrics-by-id (get-in @store [metric-ns metric-type])] (remove-history this metric-ns metric-type (key metrics-by-id) age))
+    nil)
   (list-types [this metric-ns]
     (if-let [types-in-ns (@store metric-ns)]
       (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))
@@ -111,23 +114,8 @@
       (if-let [metrics (get-in @memory [metric-ns metric-type])]
         (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
     nil)
-  (remove-metrics [this metric-ns metric-type metric-id age]
-    (sql/with-connection connection-factory 
-      (sql/transaction (sql/delete-rows 
-                         "metrics" 
-                         ["ns=? AND type=? AND id=? AND timestamp<=?" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)])))
-    nil)
   (read-metric [this metric-ns metric-type metric-id]
     (get-in @memory [metric-ns metric-type metric-id]))
-  (read-metrics [this metric-ns metric-type metric-id tags age limit]
-    (sql/with-connection connection-factory 
-      (sql/transaction (sql/with-query-results 
-                         r 
-                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT ?" 
-                          metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age)) (or limit default-limit)]
-                         (if (seq r) 
-                           (into [] (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] metric))
-                           nil)))))
   (list-metrics [this metric-ns metric-type]
     (sql/with-connection connection-factory
       (sql/transaction (sql/with-query-results 
@@ -136,6 +124,27 @@
                          (if (seq r)
                            (into [] (map #(get %1 :id) r))
                            nil)))))
+  (read-history [this metric-ns metric-type metric-id tags age limit]
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/with-query-results 
+                         r 
+                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT ?" 
+                          metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age)) (or limit default-limit)]
+                         (if (seq r) 
+                           (into [] (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] metric))
+                           nil)))))
+  (remove-history [this metric-ns metric-type metric-id age]
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/delete-rows 
+                         "metrics" 
+                         ["ns=? AND type=? AND id=? AND timestamp<=?" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)])))
+    nil)
+  (remove-history [this metric-ns metric-type age]
+    (sql/with-connection connection-factory 
+      (sql/transaction (sql/delete-rows 
+                         "metrics" 
+                         ["ns=? AND type=? AND timestamp<=?" metric-ns metric-type (- (System/currentTimeMillis) age)])))
+    nil)
   (list-types [this metric-ns]
     (if-let [types-in-ns (@memory metric-ns)]
       (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))

@@ -9,7 +9,24 @@
     (testing "Current metric value"
       (is (= metric-1 (read-metric store metric-ns metric-type metric-id))))))
 
-(defn set-and-read-multiple-metrics [store]
+(defn set-and-remove-metric [store]
+  (let [metric-ns "1" metric-type "alert" metric-id "1" metric-1 {:value "v1" :timestamp 1}]
+    (set-metric store metric-ns metric-type metric-id metric-1)
+    (remove-metric store metric-ns metric-type metric-id)
+    (testing "Current metric is nil"
+      (is (nil? (read-metric store metric-ns metric-type metric-id))))
+    (testing "Metric history is nil"
+      (is (nil? (read-history store metric-ns metric-type metric-id #{} nil nil))))))
+
+(defn set-and-read-metric-history-with-current-value-only [store]
+  (let [metric-ns "1" metric-type "alert" metric-id "1" metric-1 {:value "v1" :timestamp 1}]
+    (set-metric store metric-ns metric-type metric-id metric-1)
+    (testing "Current metric value"
+      (is (= metric-1 (read-metric store metric-ns metric-type metric-id))))
+    (testing "Metric history values"
+      (is (= [metric-1] (read-history store metric-ns metric-type metric-id #{} nil nil))))))
+
+(defn set-and-read-metric-history-with-old-values-too [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1" 
         metric-1 {:value "v1" :timestamp 1}
         metric-2 {:value "v2" :timestamp 2}
@@ -20,17 +37,9 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= [metric-3 metric-2 metric-1] (read-metrics store metric-ns metric-type metric-id #{} nil nil))))))
+      (is (= [metric-3 metric-2 metric-1] (read-history store metric-ns metric-type metric-id #{} nil nil))))))
 
-(defn set-and-read-multiple-metrics-with-current-value-only [store]
-  (let [metric-ns "1" metric-type "alert" metric-id "1" metric-1 {:value "v1" :timestamp 1}]
-    (set-metric store metric-ns metric-type metric-id metric-1)
-    (testing "Current metric value"
-      (is (= metric-1 (read-metric store metric-ns metric-type metric-id))))
-    (testing "Metric history values"
-      (is (= [metric-1] (read-metrics store metric-ns metric-type metric-id #{} nil nil))))))
-
-(defn set-and-read-multiple-metrics-by-age [store]
+(defn set-and-read-metric-history-by-age [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1" 
         metric-1 {:value "v1" :timestamp 1}
         metric-2 {:value "v2" :timestamp 2}
@@ -42,9 +51,9 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= [metric-3] (read-metrics store metric-ns metric-type metric-id #{} 1000 nil))))))
+      (is (= [metric-3] (read-history store metric-ns metric-type metric-id #{} 1000 nil))))))
 
-(defn set-and-read-multiple-metrics-by-tags [store]
+(defn set-and-read-metric-history-by-tags [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1" 
         metric-1 {:value "v1" :timestamp 1 :tags #{"t"}}
         metric-2 {:value "v2" :timestamp 2 :tags #{"t1"}}
@@ -55,9 +64,9 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= [metric-1] (read-metrics store metric-ns metric-type metric-id #{"t"} nil nil))))))
+      (is (= [metric-1] (read-history store metric-ns metric-type metric-id #{"t"} nil nil))))))
 
-(defn set-and-read-multiple-metrics-with-limit [store]
+(defn set-and-read-metric-history-with-limit [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1" 
         metric-1 {:value "v1" :timestamp 1}
         metric-2 {:value "v2" :timestamp 2}
@@ -66,18 +75,9 @@
     (set-metric store metric-ns metric-type metric-id metric-2)
     (set-metric store metric-ns metric-type metric-id metric-3)
     (testing "Metric history values with limit"
-      (is (= [metric-3 metric-2] (read-metrics store metric-ns metric-type metric-id #{} nil 2))))))
+      (is (= [metric-3 metric-2] (read-history store metric-ns metric-type metric-id #{} nil 2))))))
 
-(defn set-and-remove-metric [store]
-  (let [metric-ns "1" metric-type "alert" metric-id "1" metric-1 {:value "v1" :timestamp 1}]
-    (set-metric store metric-ns metric-type metric-id metric-1)
-    (remove-metric store metric-ns metric-type metric-id)
-    (testing "Current metric is nil"
-      (is (nil? (read-metric store metric-ns metric-type metric-id))))
-    (testing "Metric history is nil"
-      (is (nil? (read-metrics store metric-ns metric-type metric-id #{} nil nil))))))
-
-(defn set-and-remove-multiple-metrics [store]
+(defn set-and-remove-metric-history-completely [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1" 
         metric-1 {:value "v1" :timestamp 1}
         metric-2 {:value "v2" :timestamp 2}
@@ -85,13 +85,13 @@
     (set-metric store metric-ns metric-type metric-id metric-1)
     (set-metric store metric-ns metric-type metric-id metric-2)
     (set-metric store metric-ns metric-type metric-id metric-3)
-    (remove-metrics store metric-ns metric-type metric-id 0)
+    (remove-history store metric-ns metric-type metric-id 0)
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history is nil"
-      (is (nil? (read-metrics store metric-ns metric-type metric-id #{} nil nil))))))
+      (is (nil? (read-history store metric-ns metric-type metric-id #{} nil nil))))))
 
-(defn set-and-remove-multiple-metrics-by-age [store]
+(defn set-and-remove-metric-history-by-id-and-age [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1" 
         metric-1 {:value "v1" :timestamp 1}
         metric-2 {:value "v2" :timestamp 2}
@@ -100,12 +100,29 @@
     (set-metric store metric-ns metric-type metric-id metric-2)
     (set-metric store metric-ns metric-type metric-id metric-3)
     (Thread/sleep 500)
-    (remove-metrics store metric-ns metric-type metric-id 1000)
+    (remove-history store metric-ns metric-type metric-id 1000)
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= [metric-3] (read-metrics store metric-ns metric-type metric-id #{} nil nil))))))
+      (is (= [metric-3] (read-history store metric-ns metric-type metric-id #{} nil nil))))))
 
+(defn set-and-remove-multiple-metrics-history-by-age [store]
+  (let [metric-ns "1" metric-type "alert" metric-id-1 "1" metric-id-2 "2" metric-id-3 "3" 
+        metric-1 {:value "v1" :timestamp 1}
+        metric-2 {:value "v2" :timestamp 2}
+        metric-3 {:value "v3" :timestamp (+ (System/currentTimeMillis) 1000)}]
+    (set-metric store metric-ns metric-type metric-id-1 metric-1)
+    (set-metric store metric-ns metric-type metric-id-2 metric-2)
+    (set-metric store metric-ns metric-type metric-id-3 metric-3)
+    (Thread/sleep 500)
+    (remove-history store metric-ns metric-type 1000)
+    (testing "Metric history is nil"
+      (is (nil? (read-history store metric-ns metric-type metric-id-1 #{} nil nil)))
+      (is (nil? (read-history store metric-ns metric-type metric-id-2 #{} nil nil))))
+    (testing "Current metric value"
+      (is (= metric-3 (read-metric store metric-ns metric-type metric-id-3))))
+    (testing "Metric history values"
+      (is (= [metric-3] (read-history store metric-ns metric-type metric-id-3 #{} nil nil))))))
 
 (defn list-metrics-by-type [store]
   (let [metric-ns "1" metric-type "alert" 
@@ -128,9 +145,9 @@
   (let [metric-ns "1" metric-type "alert" metric-id "1"]
     (is (nil? (read-metric store metric-ns metric-type metric-id)))))
 
-(defn read-non-existent-metrics [store]
+(defn read-non-existent-history [store]
   (let [metric-ns "1" metric-type "alert" metric-id "1"]
-    (is (nil? (read-metrics store metric-ns metric-type metric-id #{"t"} nil nil)))))
+    (is (nil? (read-history store metric-ns metric-type metric-id #{"t"} nil nil)))))
 
 (defn list-non-existent-metrics [store]
   (let [metric-ns "1" metric-type "alert"]
@@ -156,36 +173,38 @@
 
 (deftest memory-store-test 
   (set-and-read-metric (new-memory-store))
-  (set-and-read-multiple-metrics (new-memory-store))
-  (set-and-read-multiple-metrics-with-current-value-only (new-memory-store))
-  (set-and-read-multiple-metrics-by-age (new-memory-store))
-  (set-and-read-multiple-metrics-by-tags (new-memory-store))
   (set-and-remove-metric (new-memory-store))
-  (set-and-remove-multiple-metrics (new-memory-store))
-  (set-and-remove-multiple-metrics-by-age (new-memory-store))
-  (set-and-read-multiple-metrics-with-limit (new-memory-store))
+  (set-and-read-metric-history-with-current-value-only (new-memory-store))
+  (set-and-read-metric-history-with-old-values-too (new-memory-store))
+  (set-and-read-metric-history-by-age (new-memory-store))
+  (set-and-read-metric-history-by-tags (new-memory-store))
+  (set-and-read-metric-history-with-limit (new-memory-store))
+  (set-and-remove-metric-history-completely (new-memory-store))
+  (set-and-remove-metric-history-by-id-and-age (new-memory-store))
+  (set-and-remove-multiple-metrics-history-by-age (new-memory-store))
+  (read-non-existent-metric (new-memory-store))
+  (read-non-existent-history (new-memory-store))
+  (list-non-existent-metrics (new-memory-store))
   (list-metrics-by-type (new-memory-store))
   (list-types-with-metrics (new-memory-store))
-  (read-non-existent-metric (new-memory-store))
-  (read-non-existent-metrics (new-memory-store))
-  (list-non-existent-metrics (new-memory-store))
   (list-types-after-removal (new-memory-store))
   (post-init (new-memory-store)))
 
 (deftest disk-store-test 
   (set-and-read-metric (new-disk-store (java.io.File/createTempFile "test" "1")))
-  (set-and-read-multiple-metrics (new-disk-store (java.io.File/createTempFile "test" "2")))
-  (set-and-read-multiple-metrics-with-current-value-only (new-disk-store (java.io.File/createTempFile "test" "3")))
-  (set-and-read-multiple-metrics-by-age (new-disk-store (java.io.File/createTempFile "test" "4")))
-  (set-and-read-multiple-metrics-by-tags (new-disk-store (java.io.File/createTempFile "test" "5")))
-  (set-and-remove-metric (new-disk-store (java.io.File/createTempFile "test" "6")))
-  (set-and-remove-multiple-metrics (new-disk-store (java.io.File/createTempFile "test" "7")))
-  (set-and-remove-multiple-metrics-by-age (new-disk-store (java.io.File/createTempFile "test" "8")))
-  (set-and-read-multiple-metrics-with-limit (new-disk-store (java.io.File/createTempFile "test" "9")))
-  (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "10")))
-  (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "11")))
-  (read-non-existent-metric (new-disk-store (java.io.File/createTempFile "test" "12")))
-  (read-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "13")))
-  (list-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "14")))
-  (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "15")))
-  (post-init (new-disk-store (java.io.File/createTempFile "test" "16"))))
+  (set-and-remove-metric (new-disk-store (java.io.File/createTempFile "test" "2")))
+  (set-and-read-metric-history-with-current-value-only (new-disk-store (java.io.File/createTempFile "test" "3")))
+  (set-and-read-metric-history-with-old-values-too (new-disk-store (java.io.File/createTempFile "test" "4")))
+  (set-and-read-metric-history-by-age (new-disk-store (java.io.File/createTempFile "test" "5")))
+  (set-and-read-metric-history-by-tags (new-disk-store (java.io.File/createTempFile "test" "6")))
+  (set-and-read-metric-history-with-limit (new-disk-store (java.io.File/createTempFile "test" "7")))
+  (set-and-remove-metric-history-completely (new-disk-store (java.io.File/createTempFile "test" "8")))
+  (set-and-remove-metric-history-by-id-and-age (new-disk-store (java.io.File/createTempFile "test" "9")))
+  (set-and-remove-multiple-metrics-history-by-age (new-disk-store (java.io.File/createTempFile "test" "10")))
+  (read-non-existent-metric (new-disk-store (java.io.File/createTempFile "test" "11")))
+  (read-non-existent-history (new-disk-store (java.io.File/createTempFile "test" "12")))
+  (list-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "13")))
+  (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "14")))
+  (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "15")))
+  (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "16")))
+  (post-init (new-disk-store (java.io.File/createTempFile "test" "17"))))
