@@ -113,7 +113,7 @@ Otherwise, you can check it out from sources and build by yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
 It is as easy as:
 
-    $> lein uberjar
+    $> lein deps && lein uberjar
 
 ## Configuration
 
@@ -138,7 +138,11 @@ In case of persistent storage, metrics identifiers should be kept consistent bet
 
 ## Startup
 
-The Nimrod metrics server can be easily started as follows (replace 8000 with you port of choice):
+First, you need to edit a nimrod.properties file in the same directory as your Nimrod jar; it can be just empty:
+
+    $> touch nimrod.properties
+
+Then, the Nimrod metrics server can be easily started as follows (replace "version" with the actual Nimrod version and "8000" with you port of choice):
 
     $> java -cp nimrod-version-standalone.jar nimrod.web.startup 8000
 
