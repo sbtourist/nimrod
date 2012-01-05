@@ -11,3 +11,4 @@ nimrod.properties
 /.lein-failures
 /target/
 /nimrod-data/
+/nimrod.conf

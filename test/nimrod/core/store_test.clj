@@ -124,6 +124,20 @@
     (testing "Metric history values"
       (is (= [metric-3] (read-history store metric-ns metric-type metric-id-3 #{} nil nil))))))
 
+(defn set-and-merge-metric-history [store]
+  (let [metric-ns "1" metric-type "alert" 
+        metric-id-1 "1" metric-id-2 "2" metric-id-3 "3"
+        metric-1 {:value "v1" :timestamp 1 :tags #{"t"}}
+        metric-2 {:value "v2" :timestamp 2 :tags #{"t"}}
+        metric-3 {:value "v3" :timestamp 3 :tags #{"t"}}
+        metric-3-1 {:value "v3-1" :timestamp 4 :tags #{"t1"}}]
+    (set-metric store metric-ns metric-type metric-id-1 metric-1)
+    (set-metric store metric-ns metric-type metric-id-2 metric-2)
+    (set-metric store metric-ns metric-type metric-id-3 metric-3)
+    (set-metric store metric-ns metric-type metric-id-3 metric-3-1)
+    (testing "Merged metric history values"
+      (is (= [metric-3 metric-2] (merge-history store metric-ns metric-type #{"t"} nil 2))))))
+
 (defn list-metrics-by-type [store]
   (let [metric-ns "1" metric-type "alert" 
         metric-id-1 "1" metric-1 {:value "v1" :timestamp 1}
@@ -182,6 +196,7 @@
   (set-and-remove-metric-history-completely (new-memory-store))
   (set-and-remove-metric-history-by-id-and-age (new-memory-store))
   (set-and-remove-multiple-metrics-history-by-age (new-memory-store))
+  (set-and-merge-metric-history (new-memory-store))
   (read-non-existent-metric (new-memory-store))
   (read-non-existent-history (new-memory-store))
   (list-non-existent-metrics (new-memory-store))
@@ -201,10 +216,11 @@
   (set-and-remove-metric-history-completely (new-disk-store (java.io.File/createTempFile "test" "8")))
   (set-and-remove-metric-history-by-id-and-age (new-disk-store (java.io.File/createTempFile "test" "9")))
   (set-and-remove-multiple-metrics-history-by-age (new-disk-store (java.io.File/createTempFile "test" "10")))
-  (read-non-existent-metric (new-disk-store (java.io.File/createTempFile "test" "11")))
-  (read-non-existent-history (new-disk-store (java.io.File/createTempFile "test" "12")))
-  (list-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "13")))
-  (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "14")))
-  (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "15")))
-  (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "16")))
-  (post-init (new-disk-store (java.io.File/createTempFile "test" "17"))))
+  (set-and-merge-metric-history (new-disk-store (java.io.File/createTempFile "test" "11")))
+  (read-non-existent-metric (new-disk-store (java.io.File/createTempFile "test" "12")))
+  (read-non-existent-history (new-disk-store (java.io.File/createTempFile "test" "13")))
+  (list-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "14")))
+  (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "15")))
+  (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "16")))
+  (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "17")))
+  (post-init (new-disk-store (java.io.File/createTempFile "test" "18"))))

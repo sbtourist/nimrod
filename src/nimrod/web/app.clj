@@ -125,6 +125,12 @@
         (remove-history @metric-agent log-id metric-type (or (parse-long age) Long/MAX_VALUE))
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
+  (http/GET ["/logs/:log-id/:metric-type/history/merge" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] [log-id metric-type age tags limit]
+    (if-let [metric-type (type-of metric-type)]
+      (if-let [result (merge-history @metric-agent log-id metric-type (or (extract tags) #{}) (parse-long age) (parse-long limit))]
+        (cors-response :ok {:size (count result) :limit (or (parse-long limit) default-limit) :values result})
+        (cors-response :not-found))
+      (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   (route/not-found ""))
 
