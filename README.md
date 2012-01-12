@@ -11,7 +11,7 @@ In other words, for those of you who love the bullet points:
 It currently provides the following features:
 
 * Pre-defined and on-the-fly registration of log files.
-* Almost real-time logs processing for metrics extraction.
+* Continuous logs processing for metrics extraction.
 * Different types of metrics with fundamental statistical information and time-series-like history.
 * Web-based, Javascript-friendly JSON-over-HTTP server, with default support for Cross Origin Resource Sharing on GET requests.
 
@@ -107,7 +107,7 @@ The Nimrod metrics server also computes and provides the following statistical i
 
 ## Download/Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.3-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.4-standalone.jar).
 
 Otherwise, you can check it out from sources and build by yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
@@ -187,15 +187,30 @@ You will always get the latest metric value, but you can also access the metric 
 
     GET /logs/log_id/metric_type/metric_id/history
 
-And browse through the history by age and tags, providing the max age and/or comma separated list of tags to match:
+Nimrod provides indeed rich APIs for history management.
+
+You can browse through the history by age and tags, providing the max age and/or comma separated list of tags to match:
 
     GET /logs/log_id/metric_type/metric_id/history?age=max_age&tags=tags_list
 
-History is limited by default at 1000 values, but you can change it by specifying the *limit* query parameter.
+History is limited by default at 1000 values, but you can change it by specifying the *limit* query parameter:
+
+    GET /logs/log_id/metric_type/metric_id/history?age=max_age&tags=tags_list&limit=max_metrics
 
 History can be "pruned" by deleting values whose latest update happened before a given number of milliseconds:
 
     POST /logs/log_id/metric_type/metric_id/history/delete?age=milliseconds
+
+The same operation can be applied to the history of all metrics belonging to a given type:
+
+    POST /logs/log_id/metric_type/history/delete?age=milliseconds
+
+And, all histories of all metrics belonging to a given type can be merged together by tags, specifying also age and limit:
+
+    POST /logs/log_id/metric_type/history/merge?tags=tags_list&age=max_age&limit=max_metrics
+
+This is very useful when you have somewhat similar or correlated metrics, and you need to group them for easier visualization and/or processing; please note that
+this is just a way to group them, and doesn't affect statistical computations such as average or variance.
 
 Finally, uninteresting metrics can be completely deleted as follows:
 
