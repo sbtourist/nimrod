@@ -8,6 +8,7 @@
                 [compojure "1.0.0"]
                 [ring/ring-core "1.0.1"]
                 [ring/ring-jetty-adapter "1.0.1"]
+                [com.typesafe.config/config "0.2.0"]
                 [tayler/tayler "1.0"]
                 [org.hsqldb/hsqldb "2.2.6"]
                 [c3p0/c3p0 "0.9.1.2"]
@@ -16,6 +17,7 @@
                 [org.slf4j/slf4j-log4j12 "1.6.1"]
                 ]
  :dev-dependencies [[ring-mock "0.1.1"]]
+ :repositories {"typesafe" "http://repo.typesafe.com/typesafe/releases"}
  :java-source-path "src"
  :aot [nimrod.web.startup]
  )

@@ -10,7 +10,7 @@
 
 (defn start [jetty port]
   (when (nil? jetty)
-    (try (setup "nimrod.properties") (catch java.io.FileNotFoundException ex (log/info (.getMessage ex))))
+    (try (setup "nimrod.conf") (catch Exception ex (log/warn (.getMessage ex))))
     (run-jetty nimrod-app {:port port :join? false})))
 
 (defn stop [jetty]
