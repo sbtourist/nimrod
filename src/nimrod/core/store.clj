@@ -103,12 +103,12 @@
     (sql/with-connection connection-factory
       (sql/with-query-results 
         all-metrics
-        ["SELECT DISTINCT ns, type, id FROM metrics"] 
+        ["SELECT ns, type, id, MAX(timestamp) AS timestamp FROM metrics GROUP BY ns, type, id"] 
         (doseq [metric all-metrics] 
           (let [latest-metric-value 
                 (sql/with-query-results 
                   latest-metric-values
-                  ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? ORDER BY timestamp DESC LIMIT 1" (metric :ns) (metric :type) (metric :id)] 
+                  ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" (metric :ns) (metric :type) (metric :id) (metric :timestamp)] 
                   (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
             (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value)))))))
   (set-metric [this metric-ns metric-type metric-id metric]
@@ -135,7 +135,7 @@
     (sql/with-connection connection-factory
       (sql/transaction (sql/with-query-results 
                          r 
-                         ["SELECT DISTINCT id FROM metrics WHERE ns=? AND type=? ORDER BY id" metric-ns metric-type]
+                         ["SELECT id FROM metrics WHERE ns=? AND type=? GROUP BY id ORDER BY id" metric-ns metric-type]
                          (if (seq r)
                            (into [] (map #(get %1 :id) r))
                            nil)))))
