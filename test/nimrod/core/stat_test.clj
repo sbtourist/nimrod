@@ -13,3 +13,8 @@
   (is (= 0 (variance 2 0 0 2 2)))
   (is (= 0 (variance 3 0 2 2 2)))
   (is (= 4 (variance 4 0 2 3 6))))
+
+(deftest compute-median
+  (is (= 1 (median [1 2])))
+  (is (= 2 (median [1 2 3])))
+  )
