@@ -169,3 +169,8 @@
                            (set-metric store metric-ns (name-of type) metric-id new-metric) 
                            (catch Exception ex (log/error (.getMessage ex) ex)))
                          store))))
+
+(defn aggregate-metric [metrics value percs]
+  {:metric value
+   :cardinality (count metrics)
+   :percentiles (percentiles (into [] (sort (for [metric metrics] (metric (keyword value))))) percs)})

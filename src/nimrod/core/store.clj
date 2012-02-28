@@ -1,6 +1,5 @@
 (ns nimrod.core.store
  (:use
-   [nimrod.core.stat]
    [nimrod.core.util]
    [cheshire.core :as json]
    [clojure.java.jdbc.internal :as jdbc]
@@ -58,7 +57,7 @@
                             :while (<= (- now (metric :timestamp)) (or age default-age)) :when (cset/subset? tags (metric :tags))] 
                         metric))]
         (if (seq metrics) 
-          {:size (count metrics) :limit actual-limit :median (median metrics) :values metrics}
+          {:size (count metrics) :limit actual-limit :values metrics}
           nil))
       nil))
   (remove-history [this metric-ns metric-type metric-id age]
@@ -87,7 +86,7 @@
                                        (if (seq values) values nil))
                                      nil))))))]
       (if (seq metrics) 
-        {:size (count metrics) :limit actual-limit :median (median metrics) :values metrics}
+        {:size (count metrics) :limit actual-limit :values metrics}
         nil)))
   (list-types [this metric-ns]
     (if-let [types-in-ns (@store metric-ns)]
@@ -158,7 +157,7 @@
                                  metrics (into [] (take actual-limit
                                                     (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] 
                                                       metric)))]
-                             {:size (count metrics) :limit actual-limit :median (median metrics) :values metrics})
+                             {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
   (remove-history [this metric-ns metric-type metric-id age]
     (sql/with-connection connection-factory 
@@ -183,7 +182,7 @@
                                  metrics (into [] (take actual-limit 
                                                     (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] 
                                                       metric)))]
-                             {:size (count metrics) :limit actual-limit :median (median metrics) :values metrics})
+                             {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
   (list-types [this metric-ns]
     (if-let [types-in-ns (@memory metric-ns)]

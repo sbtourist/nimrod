@@ -35,8 +35,11 @@
 (defn- parse-long [n]
   (when (not (nil? n)) (Long/parseLong n)))
 
-(defn- extract [tags]
-  (when (seq tags) (into #{} (string/split tags #","))))
+(defn- extract-tags [value]
+  (when (seq value) (into #{} (string/split value #","))))
+
+(defn- extract-ints [value]
+  (when (seq value) (into [] (for [s (string/split value #",")] (Integer/parseInt s)))))
 
 (defn- drop-last-char [s]
   (apply str (drop-last (seq s))))
@@ -109,10 +112,27 @@
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] 
     [log-id metric-type metric-id age tags limit]
     (if-let [metric-type (type-of metric-type)]
-      (if-let [result (read-history @metric-agent log-id metric-type metric-id (or (extract tags) #{}) (parse-long age) (parse-long limit))]
+      (if-let [result (read-history @metric-agent log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long limit))]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :tags #"[^/?#]+" :value #"[^/?#]+" :percentiles #"[\d|,]+"] 
+    [log-id metric-type metric-id age tags value percentiles]
+    (if-let [metric-type (type-of metric-type)]
+      (if-let [history (read-history @metric-agent log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) Long/MAX_VALUE)]
+        (let [result (aggregate-metric 
+                       (history :values) 
+                       (or value (throw (IllegalArgumentException. "Missing \"value\" parameter!"))) 
+                       (or (extract-ints percentiles) [25 50 75 99]))] 
+          (cors-response :ok result))
+        (cors-response :not-found))
+      (cors-response :error {:error (str "Bad metric type: " metric-type)})))
+  (http/GET ["/logs/:log-id/:metric-type/history/merge" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] [log-id metric-type age tags limit]
+    (if-let [metric-type (type-of metric-type)]
+      (if-let [result (merge-history @metric-agent log-id metric-type (or (extract-tags tags) #{}) (parse-long age) (parse-long limit))]
+        (cors-response :ok result)
+        (cors-response :not-found))
+      (std-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :age #"\d+"] [log-id metric-type metric-id age]
     (if-let [metric-type (type-of metric-type)]
       (do
@@ -124,12 +144,6 @@
       (do
         (remove-history @metric-agent log-id metric-type (or (parse-long age) Long/MAX_VALUE))
         (std-response :no-content))
-      (std-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/history/merge" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] [log-id metric-type age tags limit]
-    (if-let [metric-type (type-of metric-type)]
-      (if-let [result (merge-history @metric-agent log-id metric-type (or (extract tags) #{}) (parse-long age) (parse-long limit))]
-        (cors-response :ok result)
-        (cors-response :not-found))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   (route/not-found ""))

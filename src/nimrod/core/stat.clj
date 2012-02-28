@@ -5,15 +5,13 @@
     (+ previous-average (/ (- value previous-average) samples))
     0))
 
-(defn median [samples]
-  (let [size (count samples)]
-    (if (> size 0)
-      (if (= 0 (mod size 2)) 
-        (get samples (- (/ size 2) 1))
-        (get samples (/ (- size 1) 2)))
-      0)))
-
 (defn variance [samples previous-variance previous-average current-average value]
   (if (> samples 1)
     (/ (+ previous-variance (* (- value previous-average) (- value current-average))) (dec samples))
     0))
+
+(defn percentiles [samples percentages]
+  (let [total (count samples)]
+    (into {} 
+      (for [p percentages]
+        (let [rank (dec (int (+ (* (/ p 100) total) 0.5)))] [(keyword (str p "th")) (get samples rank)])))))
