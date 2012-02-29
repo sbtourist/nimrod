@@ -10,8 +10,7 @@
     (/ (+ previous-variance (* (- value previous-average) (- value current-average))) (dec samples))
     0))
 
-(defn percentiles [samples percentages]
-  (let [total (count samples)]
-    (into {} 
-      (for [p percentages]
-        (let [rank (dec (int (+ (* (/ p 100) total) 0.5)))] [(keyword (str p "th")) (get samples rank)])))))
+(defn percentiles [samples values percentages]
+  (into {} 
+    (for [p percentages]
+      (let [rank (dec (int (+ (* (/ p 100) samples) 0.5)))] [(keyword (str p "th")) (nth values rank)]))))

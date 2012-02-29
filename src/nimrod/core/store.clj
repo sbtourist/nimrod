@@ -1,5 +1,6 @@
 (ns nimrod.core.store
  (:use
+   [nimrod.core.stat]
    [nimrod.core.util]
    [cheshire.core :as json]
    [clojure.java.jdbc.internal :as jdbc]
@@ -14,19 +15,24 @@
 
 (defprotocol Store
   (init [this])
-  (set-metric [this metric-ns metric-type metric-id metric])
+  (set-metric [this metric-ns metric-type metric-id metric primary])
   (remove-metric [this metric-ns metric-type metric-id])
   (read-metric [this metric-ns metric-type metric-id])
   (list-metrics [this metric-ns metric-type])
   (read-history [this metric-ns metric-type metric-id tags age limit])
   (remove-history [this metric-ns metric-type metric-id age] [this metric-ns metric-type age])
   (merge-history [this metric-ns metric-type tags age limit])
+  (aggregate-history [this metric-ns metric-type metric-id age options])
   (list-types [this metric-ns]))
 
+
 (deftype MemoryStore [store]
+  
   Store
+  
   (init [this] nil)
-  (set-metric [this metric-ns metric-type metric-id metric]
+  
+  (set-metric [this metric-ns metric-type metric-id metric _ignored]
     (dosync
       (if (get-in @store [metric-ns metric-type metric-id])
         (do
@@ -35,19 +41,23 @@
         (let [new-metric {:current metric :history (sorted-map-by > (metric :timestamp) (unrationalize metric))}]
           (alter store assoc-in [metric-ns metric-type metric-id] new-metric))))
     nil)
+  
   (remove-metric [this metric-ns metric-type metric-id]
     (dosync
       (when-let [metrics (get-in @store [metric-ns metric-type])]
         (alter store assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
     nil)
+  
   (read-metric [this metric-ns metric-type metric-id]
     (if-let [current (get-in @store [metric-ns metric-type metric-id :current])]
       current
       nil))
+  
   (list-metrics [this metric-ns metric-type]
     (if-let [metrics-by-id (get-in @store [metric-ns metric-type])]
       (into [] (sort (keys metrics-by-id)))
       nil))
+  
   (read-history [this metric-ns metric-type metric-id tags age limit]
     (if-let [history (get-in @store [metric-ns metric-type metric-id :history])]
       (let [now (System/currentTimeMillis)
@@ -60,6 +70,7 @@
           {:size (count metrics) :limit actual-limit :values metrics}
           nil))
       nil))
+  
   (remove-history [this metric-ns metric-type metric-id age]
     (dosync
       (when-let [history (get-in @store [metric-ns metric-type metric-id :history])]
@@ -67,9 +78,11 @@
               new-history (into (sorted-map-by >) (for [metric history :while (<= (- now ((val metric) :timestamp)) age)] metric))]
           (alter store assoc-in [metric-ns metric-type metric-id :history] new-history))))
     nil)
+  
   (remove-history [this metric-ns metric-type age]
     (doseq [metrics-by-id (get-in @store [metric-ns metric-type])] (remove-history this metric-ns metric-type (key metrics-by-id) age))
     nil)
+  
   (merge-history [this metric-ns metric-type tags age limit]
     (let [actual-limit (or limit default-limit)
           metrics (into [] (take actual-limit
@@ -88,25 +101,38 @@
       (if (seq metrics) 
         {:size (count metrics) :limit actual-limit :values metrics}
         nil)))
+  
+  (aggregate-history [this metric-ns metric-type metric-id age options] {:message "Unsupported operation over memory store."})
+  
   (list-types [this metric-ns]
     (if-let [types-in-ns (@store metric-ns)]
       (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))
       nil)))
 
 (deftype DiskStore [connection-factory memory]
+  
   Store
+  
   (init [this]
     (dosync ref-set memory {})
     (try 
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, metric LONGVARCHAR, PRIMARY KEY (ns,type,id,timestamp))")))
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, metric LONGVARCHAR, primary_value DOUBLE, PRIMARY KEY (ns,type,id,timestamp))")))
+      (catch Exception ex))
+    (try 
+      (sql/with-connection connection-factory
+        (sql/transaction 
+          (sql/do-prepared 
+            "CREATE INDEX primary_value ON metrics primary_value")))
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared 
-          "SET DATABASE TRANSACTION CONTROL MVCC")))
+          "SET DATABASE TRANSACTION CONTROL MVCC")
+        (sql/do-prepared 
+          "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")))
     (sql/with-connection connection-factory
       (sql/with-query-results 
         all-metrics
@@ -118,15 +144,17 @@
                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" (metric :ns) (metric :type) (metric :id) (metric :timestamp)] 
                   (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
             (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value)))))))
-  (set-metric [this metric-ns metric-type metric-id metric]
+  
+  (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/update-or-insert-values 
                          "metrics"
                          ["ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id (metric :timestamp)]
-                         {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric)})))
+                         {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric) "primary_value" primary})))
     (dosync
       (alter memory assoc-in [metric-ns metric-type metric-id] metric))
     nil)
+  
   (remove-metric [this metric-ns metric-type metric-id]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/delete-rows 
@@ -136,8 +164,10 @@
       (if-let [metrics (get-in @memory [metric-ns metric-type])]
         (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
     nil)
+  
   (read-metric [this metric-ns metric-type metric-id]
     (get-in @memory [metric-ns metric-type metric-id]))
+  
   (list-metrics [this metric-ns metric-type]
     (sql/with-connection connection-factory
       (sql/transaction (sql/with-query-results 
@@ -146,6 +176,7 @@
                          (if (seq r)
                            (into [] (map #(get %1 :id) r))
                            nil)))))
+  
   (read-history [this metric-ns metric-type metric-id tags age limit]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
@@ -159,18 +190,21 @@
                                                       metric)))]
                              {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
+  
   (remove-history [this metric-ns metric-type metric-id age]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/delete-rows 
                          "metrics" 
                          ["ns=? AND type=? AND id=? AND timestamp<=?" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)])))
     nil)
+  
   (remove-history [this metric-ns metric-type age]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/delete-rows 
                          "metrics" 
                          ["ns=? AND type=? AND timestamp<=?" metric-ns metric-type (- (System/currentTimeMillis) age)])))
     nil)
+  
   (merge-history [this metric-ns metric-type tags age limit]
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
@@ -184,6 +218,23 @@
                                                       metric)))]
                              {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
+  
+  (aggregate-history [this metric-ns metric-type metric-id age options]
+    (sql/with-connection connection-factory
+      (sql/transaction 
+        (let [now (System/currentTimeMillis)
+              total (sql/with-query-results r 
+                      ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=?" metric-ns metric-type metric-id (- now (or age default-age))]
+                      ((first r) :total))]
+          (sql/with-query-results 
+            r 
+            ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY primary_value ASC" 
+             metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age))]
+            (if (seq r) 
+              {:cardinality total
+               :percentiles (percentiles total (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) (options :percentiles))}
+              nil))))))
+  
   (list-types [this metric-ns]
     (if-let [types-in-ns (@memory metric-ns)]
       (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))

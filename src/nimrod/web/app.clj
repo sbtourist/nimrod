@@ -116,15 +116,11 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :tags #"[^/?#]+" :value #"[^/?#]+" :percentiles #"[\d|,]+"] 
-    [log-id metric-type metric-id age tags value percentiles]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :percentiles #"[\d|,]+"] 
+    [log-id metric-type metric-id age percentiles]
     (if-let [metric-type (type-of metric-type)]
-      (if-let [history (read-history @metric-agent log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) Long/MAX_VALUE)]
-        (let [result (aggregate-metric 
-                       (history :values) 
-                       (or value (throw (IllegalArgumentException. "Missing \"value\" parameter!"))) 
-                       (or (extract-ints percentiles) [25 50 75 99]))] 
-          (cors-response :ok result))
+      (if-let [result (aggregate-history @metric-agent log-id metric-type metric-id (parse-long age) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
+        (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/GET ["/logs/:log-id/:metric-type/history/merge" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] [log-id metric-type age tags limit]

@@ -164,7 +164,3 @@
     (is (= 3 ((read-timer "timer-metrics" "1") :elapsed-time-average)))
     (is (= 2 ((read-timer "timer-metrics" "1") :elapsed-time-variance)))
     ))
-
-(deftest aggregation
-  (testing "Aggregate metric value"
-    (is (= {:metric "value" :cardinality 5 :percentiles {:50th 3 :75th 4}} (aggregate-metric [{:value 1} {:value 2} {:value 3} {:value 4} {:value 5}] "value" [50 75])))))

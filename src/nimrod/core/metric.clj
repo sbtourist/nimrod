@@ -6,7 +6,8 @@
 
 (defprotocol MetricType
   (name-of [this])
-  (compute [this id timestamp current-value new-value tags]))
+  (compute [this id timestamp current-value new-value tags])
+  (primary [this metric]))
 
 (deftype Alert []
   MetricType
@@ -23,7 +24,8 @@
          :timestamp new-time
          :samples 1
          :alert alert
-         :tags tags}))))
+         :tags tags})))
+  (primary [this metric] (metric :timestamp)))
 
 (deftype Gauge []
   MetricType
@@ -49,7 +51,8 @@
          :samples 1
          :gauge-average gauge
          :gauge-variance 0
-         :tags tags}))))
+         :tags tags})))
+  (primary [this metric] (metric :gauge)))
 
 (deftype Counter []
   MetricType
@@ -78,7 +81,8 @@
          :increment-average increment
          :increment-variance 0
          :latest-increment increment
-         :tags tags}))))
+         :tags tags})))
+  (primary [this metric] (metric :counter)))
 
 (deftype Timer []
   MetricType
@@ -107,7 +111,8 @@
           :else (throw (IllegalStateException. (str "Bad timer action: " action))))
         (if (= "start" action)
           {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
-          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action))))))))
+          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action)))))))
+  (primary [this metric] (metric :elapsed-time)))
 
 (defn new-alert [] (Alert.))
 
@@ -134,11 +139,6 @@
                        (let [current-metric (read-metric store metric-ns (name-of type) metric-id)
                              new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
                          (try 
-                           (set-metric store metric-ns (name-of type) metric-id new-metric) 
+                           (set-metric store metric-ns (name-of type) metric-id new-metric (primary type new-metric)) 
                            (catch Exception ex (log/error (.getMessage ex) ex)))
                          store))))
-
-(defn aggregate-metric [metrics value percs]
-  {:metric value
-   :cardinality (count metrics)
-   :percentiles (percentiles (into [] (sort (for [metric metrics] (metric (keyword value))))) percs)})
