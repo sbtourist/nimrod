@@ -13,6 +13,7 @@
 (defonce default-age Long/MAX_VALUE)
 (defonce default-limit 1000)
 
+
 (defprotocol Store
   (init [this])
   (set-metric [this metric-ns metric-type metric-id metric primary])
@@ -22,7 +23,7 @@
   (read-history [this metric-ns metric-type metric-id tags age limit])
   (remove-history [this metric-ns metric-type metric-id age] [this metric-ns metric-type age])
   (merge-history [this metric-ns metric-type tags age limit])
-  (aggregate-history [this metric-ns metric-type metric-id age options])
+  (aggregate-history [this metric-ns metric-type metric-id from to options])
   (list-types [this metric-ns]))
 
 
@@ -102,12 +103,13 @@
         {:size (count metrics) :limit actual-limit :values metrics}
         nil)))
   
-  (aggregate-history [this metric-ns metric-type metric-id age options] {:message "Unsupported operation over memory store."})
+  (aggregate-history [this metric-ns metric-type metric-id from to options] {:message "Unsupported operation over memory store."})
   
   (list-types [this metric-ns]
     (if-let [types-in-ns (@store metric-ns)]
       (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))
       nil)))
+
 
 (deftype DiskStore [connection-factory memory]
   
@@ -219,17 +221,15 @@
                              {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
   
-  (aggregate-history [this metric-ns metric-type metric-id age options]
+  (aggregate-history [this metric-ns metric-type metric-id from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
-        (let [now (System/currentTimeMillis)
-              total (sql/with-query-results r 
-                      ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=?" metric-ns metric-type metric-id (- now (or age default-age))]
+        (let [total (sql/with-query-results r 
+                      ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
                       ((first r) :total))]
           (sql/with-query-results 
             r 
-            ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY primary_value ASC" 
-             metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age))]
+            ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
             (if (seq r) 
               {:cardinality total
                :percentiles (percentiles total (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) (options :percentiles))}
