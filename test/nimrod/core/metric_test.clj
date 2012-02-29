@@ -68,16 +68,12 @@
     (is (not (nil? (read-alert "alert-metrics" "1"))))
     (is (= 2 ((read-alert "alert-metrics" "1") :timestamp)))
     (is (= "v1" ((read-alert "alert-metrics" "1") :alert)))
-    (is (= 0 ((read-alert "alert-metrics" "1") :interval-average)))
-    (is (= 0 ((read-alert "alert-metrics" "1") :interval-variance)))
     )
   (testing "Updated alert value"
     (update-alert "alert-metrics" "1" "4" "v2")
     (is (not (nil? (read-alert "alert-metrics" "1"))))
     (is (= 4 ((read-alert "alert-metrics" "1") :timestamp)))
     (is (= "v2" ((read-alert "alert-metrics" "1") :alert)))
-    (is (= 2 ((read-alert "alert-metrics" "1") :interval-average)))
-    (is (= 0 ((read-alert "alert-metrics" "1") :interval-variance)))
     ))
 
 (deftest gauge-metrics
@@ -93,8 +89,6 @@
     (is (= 4 ((read-gauge "gauge-metrics" "1") :gauge)))
     (is (= 4 ((read-gauge "gauge-metrics" "1") :gauge-average)))
     (is (= 0 ((read-gauge "gauge-metrics" "1") :gauge-variance)))
-    (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-average)))
-    (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-variance)))
     )
   (testing "Updated gauge values"
     (update-gauge "gauge-metrics" "1" "4" "6")
@@ -103,8 +97,6 @@
     (is (= 6 ((read-gauge "gauge-metrics" "1") :gauge)))
     (is (= 5 ((read-gauge "gauge-metrics" "1") :gauge-average)))
     (is (= 2 ((read-gauge "gauge-metrics" "1") :gauge-variance)))
-    (is (= 2 ((read-gauge "gauge-metrics" "1") :interval-average)))
-    (is (= 0 ((read-gauge "gauge-metrics" "1") :interval-variance)))
     ))
 
 (deftest counter-metrics
@@ -121,9 +113,6 @@
     (is (= 4 ((read-counter "counter-metrics" "1") :increment-average)))
     (is (= 0 ((read-counter "counter-metrics" "1") :increment-variance)))
     (is (= 4 ((read-counter "counter-metrics" "1") :latest-increment)))
-    (is (= 0 ((read-counter "counter-metrics" "1") :interval-average)))
-    (is (= 0 ((read-counter "counter-metrics" "1") :interval-variance)))
-    (is (= 0 ((read-counter "counter-metrics" "1") :latest-interval)))
     )
   (testing "Updated counter values"
     (update-counter "counter-metrics" "1" "4" "6")
@@ -133,9 +122,6 @@
     (is (= 5 ((read-counter "counter-metrics" "1") :increment-average)))
     (is (= 2 ((read-counter "counter-metrics" "1") :increment-variance)))
     (is (= 6 ((read-counter "counter-metrics" "1") :latest-increment)))
-    (is (= 2 ((read-counter "counter-metrics" "1") :interval-average)))
-    (is (= 0 ((read-counter "counter-metrics" "1") :interval-variance)))
-    (is (= 2 ((read-counter "counter-metrics" "1") :latest-interval)))
     ))
 
 (deftest timer-metrics

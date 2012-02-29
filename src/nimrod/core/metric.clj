@@ -14,24 +14,14 @@
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) alert new-value]
       (if-let [current current-value]
-        (let [previous-time (current :timestamp)
-              previous-interval-average (current :interval-average)
-              previous-interval-variance (current :interval-variance)
-              interval (- new-time previous-time)
-              samples (inc (current :samples))
-              interval-average (average (dec samples) previous-interval-average interval)
-              interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)]
+        (let [samples (inc (current :samples))]
           (conj current {:timestamp new-time
                          :alert alert
                          :samples samples
-                         :interval-average interval-average
-                         :interval-variance interval-variance
                          :tags tags}))
         {:id id 
          :timestamp new-time
          :samples 1
-         :interval-average 0
-         :interval-variance 0
          :alert alert
          :tags tags}))))
 
@@ -41,22 +31,14 @@
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong new-value)]
       (if-let [current current-value]
-        (let [previous-time (current :timestamp)
-              previous-interval-average (current :interval-average)
-              previous-interval-variance (current :interval-variance)
+        (let [samples (inc (current :samples))
               previous-gauge-average (current :gauge-average)
               previous-gauge-variance (current :gauge-variance)
-              interval (- new-time previous-time)
-              samples (inc (current :samples))
-              interval-average (average (dec samples) previous-interval-average interval)
-              interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
               gauge-average (average samples previous-gauge-average gauge)
               gauge-variance (variance samples previous-gauge-variance previous-gauge-average gauge-average gauge)]
           (conj current {:timestamp new-time
                          :gauge gauge
                          :samples samples
-                         :interval-average interval-average
-                         :interval-variance interval-variance
                          :gauge-average gauge-average
                          :gauge-variance gauge-variance
                          :tags tags
@@ -65,8 +47,6 @@
          :timestamp new-time
          :gauge gauge
          :samples 1
-         :interval-average 0
-         :interval-variance 0
          :gauge-average gauge
          :gauge-variance 0
          :tags tags}))))
@@ -77,24 +57,15 @@
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) increment (Long/parseLong new-value)]
       (if-let [current current-value]
-        (let [previous-time (current :timestamp)
+        (let [samples (inc (current :samples))
               previous-counter (current :counter)
-              previous-interval-average (current :interval-average)
-              previous-interval-variance (current :interval-variance)
               previous-increment-average (current :increment-average)
               previous-increment-variance (current :increment-variance)
-              interval (- new-time previous-time)
-              samples (inc (current :samples))
-              interval-average (average (dec samples) previous-interval-average interval)
-              interval-variance (variance (dec samples) previous-interval-variance previous-interval-average interval-average interval)
               increment-average (average samples previous-increment-average increment)
               increment-variance (variance samples previous-increment-variance previous-increment-average increment-average increment)]
           (conj current {:timestamp new-time
                          :counter (+ previous-counter increment)
                          :samples samples
-                         :interval-average interval-average
-                         :interval-variance interval-variance
-                         :latest-interval interval
                          :increment-average increment-average
                          :increment-variance increment-variance
                          :latest-increment increment
@@ -104,9 +75,6 @@
          :timestamp new-time
          :counter increment
          :samples 1
-         :interval-average 0
-         :interval-variance 0
-         :latest-interval 0
          :increment-average increment
          :increment-variance 0
          :latest-increment increment
