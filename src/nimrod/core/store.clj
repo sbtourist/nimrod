@@ -13,6 +13,9 @@
 (defonce default-age Long/MAX_VALUE)
 (defonce default-limit 1000)
 
+(defn- row-to-json [row]
+  (json/parse-string (row :metric) true (fn [_] #{})))
+
 
 (defprotocol Store
   (init [this])
@@ -188,7 +191,7 @@
                          (if (seq r) 
                            (let [actual-limit (or limit default-limit) 
                                  metrics (into [] (take actual-limit
-                                                    (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] 
+                                                    (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
                                                       metric)))]
                              {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
@@ -216,7 +219,7 @@
                          (if (seq r)
                            (let [actual-limit (or limit default-limit)
                                  metrics (into [] (take actual-limit 
-                                                    (for [metric (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) :when (cset/subset? tags (metric :tags))] 
+                                                    (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
                                                       metric)))]
                              {:size (count metrics) :limit actual-limit :values metrics})
                            nil)))))
@@ -232,7 +235,7 @@
             ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
             (if (seq r) 
               {:cardinality total
-               :percentiles (percentiles total (map #(json/parse-string (%1 :metric) true (fn [_] #{})) r) (options :percentiles))}
+               :percentiles (percentiles total (map row-to-json r) (options :percentiles))}
               nil))))))
   
   (list-types [this metric-ns]
