@@ -135,9 +135,7 @@
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared 
-          "SET DATABASE TRANSACTION CONTROL MVCC")
-        (sql/do-prepared 
-          "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")))
+          "SET DATABASE TRANSACTION CONTROL MVCC")))
     (sql/with-connection connection-factory
       (sql/with-query-results 
         all-metrics
@@ -227,6 +225,7 @@
   (aggregate-history [this metric-ns metric-type metric-id from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
+        (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
         (let [total (sql/with-query-results r 
                       ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
                       ((first r) :total))
