@@ -87,24 +87,7 @@
     (doseq [metrics-by-id (get-in @store [metric-ns metric-type])] (remove-history this metric-ns metric-type (key metrics-by-id) age))
     nil)
   
-  (merge-history [this metric-ns metric-type tags age limit]
-    (let [actual-limit (or limit default-limit)
-          metrics (into [] (take actual-limit
-                             (sort-by #(%1 :timestamp) >
-                               (apply concat 
-                                 (for [metric (vals (get-in @store [metric-ns metric-type]))]
-                                   (if-let [history (metric :history)]
-                                     (let [now (System/currentTimeMillis)
-                                           values (into [] 
-                                                    (for [history-value (vals history)
-                                                          :while (<= (- now (history-value :timestamp)) (or age default-age)) 
-                                                          :when (cset/subset? tags (history-value :tags))] 
-                                                      history-value))]
-                                       (if (seq values) values nil))
-                                     nil))))))]
-      (if (seq metrics) 
-        {:size (count metrics) :limit actual-limit :values metrics}
-        nil)))
+  (merge-history [this metric-ns metric-type tags age limit] {:message "Unsupported operation over memory store."})
   
   (aggregate-history [this metric-ns metric-type metric-id from to options] {:message "Unsupported operation over memory store."})
   
@@ -184,14 +167,12 @@
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC" 
+                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit)) 
                           metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age))]
                          (if (seq r) 
-                           (let [actual-limit (or limit default-limit) 
-                                 metrics (into [] (take actual-limit
-                                                    (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
-                                                      metric)))]
-                             {:size (count metrics) :limit actual-limit :values metrics})
+                           (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
+                                                    metric))]
+                             {:size (count metrics) :limit (or limit default-limit) :values metrics})
                            nil)))))
   
   (remove-history [this metric-ns metric-type metric-id age]
@@ -212,14 +193,12 @@
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         ["SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC" 
+                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit))
                           metric-ns metric-type (- (System/currentTimeMillis) (or age default-age))]
                          (if (seq r)
-                           (let [actual-limit (or limit default-limit)
-                                 metrics (into [] (take actual-limit 
-                                                    (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
-                                                      metric)))]
-                             {:size (count metrics) :limit actual-limit :values metrics})
+                           (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
+                                                    metric))]
+                             {:size (count metrics) :limit (or limit default-limit) :values metrics})
                            nil)))))
   
   (aggregate-history [this metric-ns metric-type metric-id from to options]

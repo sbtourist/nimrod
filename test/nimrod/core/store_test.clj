@@ -136,7 +136,7 @@
     (set-metric store metric-ns metric-type metric-id-3 metric-3 3)
     (set-metric store metric-ns metric-type metric-id-3 metric-3-1 31)
     (testing "Merged metric history values"
-      (is (= {:values [metric-3 metric-2] :size 2 :limit 2} (merge-history store metric-ns metric-type #{"t"} nil 2))))))
+      (is (= {:values [metric-3] :size 1 :limit 2} (merge-history store metric-ns metric-type #{"t"} nil 2))))))
 
 (defn set-and-aggregate-metric-history [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -218,7 +218,6 @@
   (set-and-remove-metric-history-completely (new-memory-store))
   (set-and-remove-metric-history-by-id-and-age (new-memory-store))
   (set-and-remove-multiple-metrics-history-by-age (new-memory-store))
-  (set-and-merge-metric-history (new-memory-store))
   (read-non-existent-metric (new-memory-store))
   (read-non-existent-history (new-memory-store))
   (list-non-existent-metrics (new-memory-store))
