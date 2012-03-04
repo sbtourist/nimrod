@@ -229,14 +229,15 @@
       (sql/transaction 
         (let [total (sql/with-query-results r 
                       ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
-                      ((first r) :total))]
-          (sql/with-query-results 
-            r 
-            ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
-            (if (seq r) 
-              {:cardinality total
-               :percentiles (percentiles total (map row-to-json r) (options :percentiles))}
-              nil))))))
+                      ((first r) :total))
+              query (sql/prepare-statement 
+                      (connection*) 
+                      (str "SELECT metric FROM metrics WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" (or from 0) " AND timestamp<=" (or to Long/MAX_VALUE) " ORDER BY primary_value ASC") 
+                      :concurrency :read-only :result-type :scroll-insensitive)
+              rs (.executeQuery query)]
+          (if (.first rs)
+            {:cardinality total :percentiles (percentiles total rs (options :percentiles) #(when (.absolute %1 %2) (json/parse-string (.getString %1 1) true (fn [_] #{}))))}
+            nil)))))
   
   (list-types [this metric-ns]
     (if-let [types-in-ns (@memory metric-ns)]
