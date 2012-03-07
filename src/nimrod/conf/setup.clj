@@ -8,7 +8,7 @@
 
 (defn- setup-logs [conf]
   (when-let [logs (.get conf "logs")]
-    (doseq [log logs] (start-tailer (key log) (.get (val log) "source") (.get (val log) "interval")))))
+    (doseq [log logs] (start-tailer (key log) (.get (val log) "source") (.get (val log) "interval") (.get (val log) "end")))))
 
 (defn- setup-store [conf]
   (let [store (or (.get conf "store") {"type" "memory"})]
@@ -20,5 +20,5 @@
 
 (defn setup [source]
   (let [conf (.unwrapped (.root (ConfigFactory/parseFile (io/file source))))]
-    (setup-logs conf)
-    (setup-store conf)))
+    (setup-store conf)
+    (setup-logs conf)))

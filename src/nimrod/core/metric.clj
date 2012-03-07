@@ -132,7 +132,7 @@
 (defonce metric-agent (new-metric-agent nil))
 
 (defn setup-metric-store [store]
-  (send metric-agent (fn [_] store)))
+  (await (send metric-agent (fn [_] store))))
 
 (defn compute-metric [type metric-ns metric-id timestamp value tags]
   (send metric-agent (fn [store] 

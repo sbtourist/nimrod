@@ -6,12 +6,6 @@
    [nimrod.conf.setup]
    [nimrod.web.app]))
 
-(defonce server (new-agent nil))
-
-(defn start [jetty port]
-  (when (nil? jetty)
+(defn start [port]
     (try (setup "nimrod.conf") (catch Exception ex (log/warn (.getMessage ex))))
-    (run-jetty nimrod-app {:port port :join? false})))
-
-(defn stop [jetty]
-  (when (not (nil? jetty)) (.stop jetty) nil))
+    (run-jetty nimrod-app {:port port :join? false}))

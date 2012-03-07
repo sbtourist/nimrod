@@ -4,4 +4,4 @@
    [nimrod.web.server]))
 
 (defn -main [port]
-  (send-off server start (Long/parseLong port)))
+  (start (Long/parseLong port)))

@@ -41,8 +41,8 @@
       (if (get-in @store [metric-ns metric-type metric-id])
         (do
           (alter store assoc-in [metric-ns metric-type metric-id :current] metric)
-          (alter store assoc-in [metric-ns metric-type metric-id :history (metric :timestamp)] (unrationalize metric)))
-        (let [new-metric {:current metric :history (sorted-map-by > (metric :timestamp) (unrationalize metric))}]
+          (alter store assoc-in [metric-ns metric-type metric-id :history (metric :timestamp)] metric))
+        (let [new-metric {:current metric :history (sorted-map-by > (metric :timestamp) metric)}]
           (alter store assoc-in [metric-ns metric-type metric-id] new-metric))))
     nil)
   
@@ -113,29 +113,35 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE INDEX primary_value ON metrics primary_value")))
+            "CREATE INDEX timestamp_value ON metrics (timestamp)")))
+      (catch Exception ex))
+    (try 
+      (sql/with-connection connection-factory
+        (sql/transaction 
+          (sql/do-prepared 
+            "CREATE INDEX primary_value ON metrics (primary_value)")))
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
-        (sql/do-prepared 
-          "SET DATABASE TRANSACTION CONTROL MVCC")))
-    (sql/with-connection connection-factory
-      (sql/with-query-results 
-        all-metrics
-        ["SELECT ns, type, id, MAX(timestamp) AS timestamp FROM metrics GROUP BY ns, type, id"] 
-        (doseq [metric all-metrics] 
-          (let [latest-metric-value 
-                (sql/with-query-results 
-                  latest-metric-values
-                  ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" (metric :ns) (metric :type) (metric :id) (metric :timestamp)] 
-                  (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
-            (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value)))))))
+        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVLOCKS"))
+      (sql/transaction 
+        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 100000"))
+      (sql/transaction 
+        (sql/with-query-results 
+          all-metrics
+          ["SELECT ns, type, id, MAX(timestamp) AS timestamp FROM metrics GROUP BY ns, type, id"] 
+          (doseq [metric all-metrics] 
+            (let [latest-metric-value 
+                  (sql/with-query-results 
+                    latest-metric-values
+                    ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" (metric :ns) (metric :type) (metric :id) (metric :timestamp)] 
+                    (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
+              (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value))))))))
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
-      (sql/transaction (sql/update-or-insert-values 
+      (sql/transaction (sql/insert-record 
                          "metrics"
-                         ["ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id (metric :timestamp)]
                          {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric) "primary_value" primary})))
     (dosync
       (alter memory assoc-in [metric-ns metric-type metric-id] metric))
@@ -167,7 +173,7 @@
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit)) 
+                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX") 
                           metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age))]
                          (if (seq r) 
                            (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
@@ -193,7 +199,7 @@
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit))
+                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX")
                           metric-ns metric-type (- (System/currentTimeMillis) (or age default-age))]
                          (if (seq r)
                            (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
@@ -207,14 +213,13 @@
         (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
         (let [total (sql/with-query-results r 
                       ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
-                      ((first r) :total))
-              query (sql/prepare-statement 
-                      (connection*) 
-                      (str "SELECT metric FROM metrics WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" (or from 0) " AND timestamp<=" (or to Long/MAX_VALUE) " ORDER BY primary_value ASC") 
-                      :concurrency :read-only :result-type :scroll-insensitive)
-              rs (.executeQuery query)]
-          (if (.first rs)
-            {:cardinality total :percentiles (percentiles total rs (options :percentiles) #(when (.absolute %1 %2) (json/parse-string (.getString %1 1) true (fn [_] #{}))))}
+                      ((first r) :total))]
+          (if (> total 0)
+            (let [percentiles-values (for [rank (percentiles total (options :percentiles))]
+                                       (sql/with-query-results r 
+                                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC LIMIT 1 OFFSET " (dec (second rank)) " USING INDEX") metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
+                                         [(keyword (str (first rank) "th")) (json/parse-string ((first r) :metric) true (fn [_] #{}))]))]
+              {:cardinality total :percentiles (into {} percentiles-values)})
             nil)))))
   
   (list-types [this metric-ns]
@@ -230,7 +235,7 @@
 (defn new-disk-store [path] 
   (let [pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-               (.setJdbcUrl (str "jdbc:hsqldb:file:" path))
+               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.inc_backup=false;hsqldb.cache_file_scale=256;hsqldb.cache_rows=1000;hsqldb.cache_size=1000"))
                (.setUser "SA")
                (.setPassword "")) 
         store (DiskStore. {:datasource pool} (ref {}))]
