@@ -9,7 +9,7 @@
                 [ring/ring-core "1.0.1"]
                 [ring/ring-jetty-adapter "1.0.1"]
                 [com.typesafe.config/config "0.2.0"]
-                [tayler/tayler "1.1-SNAPSHOT"]
+                [tayler/tayler "1.1"]
                 [org.hsqldb/hsqldb "2.2.8"]
                 [c3p0/c3p0 "0.9.1.2"]
                 [com.google.guava/guava "r09"]
