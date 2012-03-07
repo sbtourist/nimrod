@@ -6,10 +6,10 @@
  (:import
    [tayler Tailer TailerListenerAdapter]))
 
-(defonce tailer-buffer-size 4096)
+(defonce tailer-buffer-size 8192)
 (defonce tailers (ref {}))
 
-(defn- create-tailer [id log interval]
+(defn- create-tailer [id log interval end]
   (Tailer.
     (io/file log)
     (proxy [TailerListenerAdapter] []
@@ -17,15 +17,14 @@
       (fileRotated [] (log/info (str "Rotated log file: " log)))
       (error [obj] (log/error (.getMessage obj) obj))
       (handle [obj] (process id obj))
-      (stop [] (log/info (str "Stopped tailing file: " log)))
-      )
+      (stop [] (log/info (str "Stopped tailing file: " log))))
     interval
-    true
+    end
     tailer-buffer-size))
 
-(defn start-tailer [id log interval]
-  (let [tailer (create-tailer id log interval)]
-    (log/info (str "Start listening to log: " log))
+(defn start-tailer [id log interval end]
+  (let [tailer (create-tailer id log interval end)]
+    (if end (log/info (str "Start listening to log: " log)) (log/info (str "Start processing log: " log)))
     (dosync
       (if (contains? @tailers id)
         (throw (IllegalStateException. (str "Duplicated log identifier: " id)))
