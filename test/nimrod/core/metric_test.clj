@@ -15,7 +15,7 @@
   )
 
 (defn- read-alert [alert-ns alert-id]
-  (read-metric @metric-agent alert-ns (name-of alert) alert-id)
+  (read-metric @metrics-store alert-ns (name-of alert) alert-id)
   )
 
 (defn- update-gauge
@@ -28,7 +28,7 @@
   )
 
 (defn- read-gauge [gauge-ns gauge-id]
-  (read-metric @metric-agent gauge-ns (name-of gauge) gauge-id)
+  (read-metric @metrics-store gauge-ns (name-of gauge) gauge-id)
   )
 
 (defn- update-counter 
@@ -41,7 +41,7 @@
   )
 
 (defn- read-counter [counter-ns counter-id]
-  (read-metric @metric-agent counter-ns (name-of counter) counter-id)
+  (read-metric @metrics-store counter-ns (name-of counter) counter-id)
   )
 
 (defn- update-timer 
@@ -54,7 +54,7 @@
   )
 
 (defn- read-timer [timer-ns timer-id]
-  (read-metric @metric-agent timer-ns (name-of timer) timer-id)
+  (read-metric @metrics-store timer-ns (name-of timer) timer-id)
   )
 
 (deftest alert-metrics

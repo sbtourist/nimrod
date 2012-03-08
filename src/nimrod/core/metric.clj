@@ -2,7 +2,8 @@
  (:use [nimrod.core.stat]
    [nimrod.core.store]
    [nimrod.core.util]
-   [clojure.tools.logging :as log]))
+   [clojure.tools.logging :as log])
+ (:import [java.util.concurrent ArrayBlockingQueue]))
 
 (defprotocol MetricType
   (name-of [this])
@@ -122,23 +123,19 @@
 
 (defn new-timer [] (Timer.))
 
-(defn new-metric-agent [store] (new-agent store))
-
 (defonce alert (new-alert))
 (defonce gauge (new-gauge))
 (defonce counter (new-counter))
 (defonce timer (new-timer))
 
-(defonce metric-agent (new-metric-agent nil))
+(defonce metrics-store (atom nil))
 
 (defn setup-metric-store [store]
-  (await (send metric-agent (fn [_] store))))
+  (reset! metrics-store store))
 
 (defn compute-metric [type metric-ns metric-id timestamp value tags]
-  (send metric-agent (fn [store] 
-                       (let [current-metric (read-metric store metric-ns (name-of type) metric-id)
-                             new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
-                         (try 
-                           (set-metric store metric-ns (name-of type) metric-id new-metric (primary type new-metric)) 
-                           (catch Exception ex (log/error (.getMessage ex) ex)))
-                         store))))
+  (let [current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
+        new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
+    (try 
+      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (primary type new-metric)) 
+      (catch Exception ex (log/error (.getMessage ex) ex)))))
