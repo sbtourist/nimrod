@@ -123,7 +123,7 @@
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVLOCKS"))
+        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
         (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 100000"))
       (sql/transaction 
@@ -235,7 +235,7 @@
 (defn new-disk-store [path] 
   (let [pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.inc_backup=false;hsqldb.cache_file_scale=256;hsqldb.cache_rows=1000;hsqldb.cache_size=1000"))
+               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.cache_file_scale=128;hsqldb.cache_rows=100"))
                (.setUser "SA")
                (.setPassword "")) 
         store (DiskStore. {:datasource pool} (ref {}))]
