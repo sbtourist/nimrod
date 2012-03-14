@@ -15,3 +15,9 @@
   (into {}
     (for [p percentages]
       (let [rank (int (+ (* (/ p 100) samples) 0.5))] [p rank]))))
+
+(defn percentiles [values percentages]
+  (let [total (count values)]
+    (into {} 
+      (for [p percentages]
+        (let [rank (int (+ (* (/ p 100) total) 0.5))] [(keyword (str p "th")) (nth values (dec rank))])))))

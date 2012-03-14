@@ -115,17 +115,11 @@
           (sql/do-prepared 
             "CREATE INDEX timestamp_value ON metrics (timestamp)")))
       (catch Exception ex))
-    (try 
-      (sql/with-connection connection-factory
-        (sql/transaction 
-          (sql/do-prepared 
-            "CREATE INDEX primary_value ON metrics (primary_value)")))
-      (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 1000000"))
+        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 100000000"))
       (sql/transaction 
         (sql/with-query-results 
           all-metrics
@@ -203,24 +197,18 @@
                          [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX")
                           metric-ns metric-type (- (System/currentTimeMillis) (or age default-age))]
                          (if (seq r)
-                           (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] 
-                                                    metric))]
+                           (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
                              {:size (count metrics) :limit (or limit default-limit) :values metrics})
                            nil)))))
   
   (aggregate-history [this metric-ns metric-type metric-id from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
-        (let [total (sql/with-query-results r 
-                      ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
-                      ((first r) :total))]
-          (if (> total 0)
-            (let [percentiles-values (for [rank (percentiles total (options :percentiles))]
-                                       (sql/with-query-results r 
-                                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC LIMIT 1 OFFSET " (dec (second rank)) " USING INDEX") metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
-                                         [(keyword (str (first rank) "th")) (json/parse-string ((first r) :metric) true (fn [_] #{}))]))]
-              {:cardinality total :percentiles (into {} percentiles-values)})
+        (let [values (sql/with-query-results r 
+                       ["SELECT primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
+                       (let [accumulator (reduce #(conj! %1 (%2 :primary_value)) (transient []) r)] (persistent! accumulator)))]
+          (if (seq values)
+            {:cardinality (count values) :percentiles (percentiles values (options :percentiles))}
             nil)))))
   
   (list-types [this metric-ns]
@@ -236,7 +224,7 @@
 (defn new-disk-store [path] 
   (let [pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=10000"))
+               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=100000"))
                (.setUser "SA")
                (.setPassword "")) 
         store (DiskStore. {:datasource pool} (ref {}))]

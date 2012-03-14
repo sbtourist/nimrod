@@ -147,7 +147,7 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 3 :percentiles {:50th metric-2}} (aggregate-history store metric-ns metric-type metric-id nil nil {:percentiles [50]}))))))
+      (is (= {:cardinality 3 :percentiles {:50th 2.0}} (aggregate-history store metric-ns metric-type metric-id nil nil {:percentiles [50]}))))))
 
 (defn set-and-aggregate-metric-history-with-time-interval [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -158,7 +158,7 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 2 :percentiles {:50th metric-1}} (aggregate-history store metric-ns metric-type metric-id 1 2 {:percentiles [50]}))))))
+      (is (= {:cardinality 2 :percentiles {:50th 1.0}} (aggregate-history store metric-ns metric-type metric-id 1 2 {:percentiles [50]}))))))
 
 (defn list-metrics-by-type [store]
   (let [metric-ns "1" metric-type "gauge" 
