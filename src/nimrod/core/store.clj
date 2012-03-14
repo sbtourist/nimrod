@@ -140,8 +140,9 @@
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
-      (sql/transaction (sql/insert-record 
+      (sql/transaction (sql/update-or-insert-values 
                          "metrics"
+                         ["ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id (metric :timestamp)]
                          {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric) "primary_value" primary})))
     (dosync
       (alter memory assoc-in [metric-ns metric-type metric-id] metric))
