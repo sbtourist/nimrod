@@ -26,7 +26,7 @@
   (read-history [this metric-ns metric-type metric-id tags age limit])
   (remove-history [this metric-ns metric-type metric-id age] [this metric-ns metric-type age])
   (merge-history [this metric-ns metric-type tags age limit])
-  (aggregate-history [this metric-ns metric-type metric-id from to options])
+  (aggregate-history [this metric-ns metric-type metric-id age from to options])
   (list-types [this metric-ns]))
 
 
@@ -89,7 +89,7 @@
   
   (merge-history [this metric-ns metric-type tags age limit] {:message "Unsupported operation over memory store."})
   
-  (aggregate-history [this metric-ns metric-type metric-id from to options] {:message "Unsupported operation over memory store."})
+  (aggregate-history [this metric-ns metric-type metric-id age from to options] {:message "Unsupported operation over memory store."})
   
   (list-types [this metric-ns]
     (if-let [types-in-ns (@store metric-ns)]
@@ -201,11 +201,13 @@
                              {:size (count metrics) :limit (or limit default-limit) :values metrics})
                            nil)))))
   
-  (aggregate-history [this metric-ns metric-type metric-id from to options]
+  (aggregate-history [this metric-ns metric-type metric-id age from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
         (let [values (sql/with-query-results r 
-                       ["SELECT timestamp, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
+                       ["SELECT timestamp, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
+                        metric-ns metric-type metric-id 
+                        (max (- (System/currentTimeMillis) (or age default-age)) (or from 0)) (or to Long/MAX_VALUE)]
                        (let [accumulator (reduce #(conj! %1 %2) (transient []) r)] (persistent! accumulator)))]
           (when (seq values)
             {:cardinality 

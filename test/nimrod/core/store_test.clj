@@ -147,7 +147,7 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 3 :percentiles {:50th metric-2}} (aggregate-history store metric-ns metric-type metric-id nil nil {:percentiles [50]}))))))
+      (is (= {:cardinality 3 :percentiles {:50th metric-2}} (aggregate-history store metric-ns metric-type metric-id nil nil nil {:percentiles [50]}))))))
 
 (defn set-and-aggregate-metric-history-with-time-interval [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -158,7 +158,18 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 2 :percentiles {:50th metric-1}} (aggregate-history store metric-ns metric-type metric-id 1 2 {:percentiles [50]}))))))
+      (is (= {:cardinality 2 :percentiles {:50th metric-1}} (aggregate-history store metric-ns metric-type metric-id nil 1 2 {:percentiles [50]}))))))
+
+(defn set-and-aggregate-metric-history-with-age [store]
+  (let [metric-ns "1" metric-type "gauge" metric-id "1" 
+        metric-1 {:value 1 :timestamp 1}
+        metric-2 {:value 2 :timestamp 2}
+        metric-3 {:value 3 :timestamp (System/currentTimeMillis)}]
+    (set-metric store metric-ns metric-type metric-id metric-1 1)
+    (set-metric store metric-ns metric-type metric-id metric-2 2)
+    (set-metric store metric-ns metric-type metric-id metric-3 3)
+    (testing "Metric history aggregation"
+      (is (= {:cardinality 1 :percentiles {:50th metric-3}} (aggregate-history store metric-ns metric-type metric-id 1000 1 nil {:percentiles [50]}))))))
 
 (defn list-metrics-by-type [store]
   (let [metric-ns "1" metric-type "gauge" 
@@ -240,10 +251,11 @@
   (set-and-merge-metric-history (new-disk-store (java.io.File/createTempFile "test" "11")))
   (set-and-aggregate-metric-history (new-disk-store (java.io.File/createTempFile "test" "12")))
   (set-and-aggregate-metric-history-with-time-interval (new-disk-store (java.io.File/createTempFile "test" "13")))
-  (read-non-existent-metric (new-disk-store (java.io.File/createTempFile "test" "14")))
-  (read-non-existent-history (new-disk-store (java.io.File/createTempFile "test" "15")))
-  (list-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "16")))
-  (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "17")))
-  (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "18")))
-  (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "19")))
-  (post-init (new-disk-store (java.io.File/createTempFile "test" "20"))))
+  (set-and-aggregate-metric-history-with-age (new-disk-store (java.io.File/createTempFile "test" "14")))
+  (read-non-existent-metric (new-disk-store (java.io.File/createTempFile "test" "15")))
+  (read-non-existent-history (new-disk-store (java.io.File/createTempFile "test" "16")))
+  (list-non-existent-metrics (new-disk-store (java.io.File/createTempFile "test" "17")))
+  (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "18")))
+  (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "19")))
+  (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "20")))
+  (post-init (new-disk-store (java.io.File/createTempFile "test" "21"))))
