@@ -119,18 +119,7 @@
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 100000000"))
-      (sql/transaction 
-        (sql/with-query-results 
-          all-metrics
-          ["SELECT ns, type, id FROM metrics GROUP BY ns, type, id"] 
-          (doseq [metric all-metrics] 
-            (let [latest-metric-value 
-                  (sql/with-query-results 
-                    latest-metric-values
-                    ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? ORDER BY timestamp DESC LIMIT 1 USING INDEX" (metric :ns) (metric :type) (metric :id)] 
-                    (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
-              (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value))))))))
+        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 100000000"))))
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
@@ -153,7 +142,18 @@
     nil)
   
   (read-metric [this metric-ns metric-type metric-id]
-    (get-in @memory [metric-ns metric-type metric-id]))
+    (if-let [latest-metric-value (get-in @memory [metric-ns metric-type metric-id])]
+      latest-metric-value
+      (when-let [latest-metric-value 
+                 (sql/with-connection connection-factory
+                   (sql/transaction 
+                     (sql/with-query-results 
+                       latest-metric-values
+                       ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? ORDER BY timestamp DESC LIMIT 1 USING INDEX" metric-ns metric-type metric-id] 
+                       (when (seq latest-metric-values) (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{}))))))]
+        (dosync 
+          (alter memory assoc-in [metric-ns metric-type metric-id] latest-metric-value) 
+          latest-metric-value))))
   
   (list-metrics [this metric-ns metric-type]
     (sql/with-connection connection-factory
@@ -212,9 +212,13 @@
             nil)))))
   
   (list-types [this metric-ns]
-    (if-let [types-in-ns (@memory metric-ns)]
-      (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))
-      nil)))
+    (sql/with-connection connection-factory
+      (sql/transaction
+        (sql/with-query-results 
+          all-types
+          ["SELECT type FROM metrics WHERE ns=? GROUP BY type ORDER BY type" metric-ns]
+          (into [] (for [type all-types] (type :type))))))))  
+
 
 (defn new-memory-store [] 
   (let [store (MemoryStore. (ref {}))]
