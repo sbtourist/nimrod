@@ -123,12 +123,12 @@
       (sql/transaction 
         (sql/with-query-results 
           all-metrics
-          ["SELECT ns, type, id, MAX(timestamp) AS timestamp FROM metrics GROUP BY ns, type, id"] 
+          ["SELECT ns, type, id FROM metrics GROUP BY ns, type, id"] 
           (doseq [metric all-metrics] 
             (let [latest-metric-value 
                   (sql/with-query-results 
                     latest-metric-values
-                    ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" (metric :ns) (metric :type) (metric :id) (metric :timestamp)] 
+                    ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? ORDER BY timestamp DESC LIMIT 1 USING INDEX" (metric :ns) (metric :type) (metric :id)] 
                     (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{})))]
               (dosync (alter memory assoc-in [(metric :ns) (metric :type) (metric :id)] latest-metric-value))))))))
   
@@ -224,9 +224,15 @@
 (defn new-disk-store [path] 
   (let [pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=100000"))
+               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=50;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=10000"))
                (.setUser "SA")
-               (.setPassword "")) 
+               (.setPassword "")
+               (.setMinPoolSize 1)
+               (.setMaxPoolSize 10)
+               (.setInitialPoolSize 0)
+               (.setAcquireIncrement 1)
+               (.setNumHelperThreads 5))
         store (DiskStore. {:datasource pool} (ref {}))]
+    (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool))))
     (init store)
     store))
