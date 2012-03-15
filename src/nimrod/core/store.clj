@@ -150,7 +150,7 @@
                      (sql/with-query-results 
                        latest-metric-values
                        ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? ORDER BY timestamp DESC LIMIT 1 USING INDEX" metric-ns metric-type metric-id] 
-                       (when (seq latest-metric-values) (json/parse-string ((first latest-metric-values) :metric) true (fn [_] #{}))))))]
+                       (when (seq latest-metric-values) (row-to-json (first latest-metric-values))))))]
         (dosync 
           (alter memory assoc-in [metric-ns metric-type metric-id] latest-metric-value) 
           latest-metric-value))))
@@ -205,11 +205,18 @@
     (sql/with-connection connection-factory
       (sql/transaction 
         (let [values (sql/with-query-results r 
-                       ["SELECT primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
-                       (let [accumulator (reduce #(conj! %1 (%2 :primary_value)) (transient []) r)] (persistent! accumulator)))]
-          (if (seq values)
-            {:cardinality (count values) :percentiles (percentiles values (options :percentiles))}
-            nil)))))
+                       ["SELECT timestamp, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" metric-ns metric-type metric-id (or from 0) (or to Long/MAX_VALUE)]
+                       (let [accumulator (reduce #(conj! %1 %2) (transient []) r)] (persistent! accumulator)))]
+          (when (seq values)
+            {:cardinality 
+             (count values) 
+             :percentiles
+             (into {} 
+               (for [p (percentiles values (options :percentiles))]
+                 (sql/with-query-results 
+                   r 
+                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id ((val p) :timestamp)]
+                   [(key p) (row-to-json (first r))])))})))))
   
   (list-types [this metric-ns]
     (sql/with-connection connection-factory
