@@ -58,7 +58,7 @@
   )
 
 (deftest alert-metrics
-  (setup-metric-store (new-memory-store))
+  (setup-metric-store (new-disk-store (java.io.File/createTempFile "test" "alert-metrics")))
   (Thread/sleep 250)
   (testing "Null alert"
     (is (nil? (read-alert "alert-metrics" "1")))
@@ -77,7 +77,7 @@
     ))
 
 (deftest gauge-metrics
-  (setup-metric-store (new-memory-store))
+  (setup-metric-store (new-disk-store (java.io.File/createTempFile "test" "gauge-metrics")))
   (Thread/sleep 250)
   (testing "Null gauge"
     (is (nil? (read-gauge "gauge-metrics" "1")))
@@ -100,7 +100,7 @@
     ))
 
 (deftest counter-metrics
-  (setup-metric-store (new-memory-store))
+  (setup-metric-store (new-disk-store (java.io.File/createTempFile "test" "counter-metrics")))
   (Thread/sleep 250)
   (testing "Null counter"
     (is (nil? (read-counter "counter-metrics" "1")))
@@ -125,7 +125,7 @@
     ))
 
 (deftest timer-metrics
-  (setup-metric-store (new-memory-store))
+  (setup-metric-store (new-disk-store (java.io.File/createTempFile "test" "timer-metrics")))
   (Thread/sleep 250)
   (testing "Null timer"
     (is (nil? (read-timer "timer-metrics" "1")))

@@ -218,25 +218,6 @@
     (is (= metric-1-2 (read-metric store metric-ns-1 metric-type-1 metric-id-1)))
     (is (= metric-2-2 (read-metric store metric-ns-2 metric-type-2 metric-id-2)))))
 
-(deftest memory-store-test 
-  (set-and-read-metric (new-memory-store))
-  (set-and-remove-metric (new-memory-store))
-  (set-and-read-metric-history-with-current-value-only (new-memory-store))
-  (set-and-read-metric-history-with-old-values-too (new-memory-store))
-  (set-and-read-metric-history-by-age (new-memory-store))
-  (set-and-read-metric-history-by-tags (new-memory-store))
-  (set-and-read-metric-history-with-limit (new-memory-store))
-  (set-and-remove-metric-history-completely (new-memory-store))
-  (set-and-remove-metric-history-by-id-and-age (new-memory-store))
-  (set-and-remove-multiple-metrics-history-by-age (new-memory-store))
-  (read-non-existent-metric (new-memory-store))
-  (read-non-existent-history (new-memory-store))
-  (list-non-existent-metrics (new-memory-store))
-  (list-metrics-by-type (new-memory-store))
-  (list-types-with-metrics (new-memory-store))
-  (list-types-after-removal (new-memory-store))
-  (post-init (new-memory-store)))
-
 (deftest disk-store-test 
   (set-and-read-metric (new-disk-store (java.io.File/createTempFile "test" "1")))
   (set-and-remove-metric (new-disk-store (java.io.File/createTempFile "test" "2")))

@@ -13,6 +13,7 @@
 (defonce default-age Long/MAX_VALUE)
 (defonce default-limit 1000)
 
+
 (defn- row-to-json [row]
   (json/parse-string (row :metric) true (fn [_] #{})))
 
@@ -28,73 +29,6 @@
   (merge-history [this metric-ns metric-type tags age limit])
   (aggregate-history [this metric-ns metric-type metric-id age from to options])
   (list-types [this metric-ns]))
-
-
-(deftype MemoryStore [store]
-  
-  Store
-  
-  (init [this] nil)
-  
-  (set-metric [this metric-ns metric-type metric-id metric _ignored]
-    (dosync
-      (if (get-in @store [metric-ns metric-type metric-id])
-        (do
-          (alter store assoc-in [metric-ns metric-type metric-id :current] metric)
-          (alter store assoc-in [metric-ns metric-type metric-id :history (metric :timestamp)] metric))
-        (let [new-metric {:current metric :history (sorted-map-by > (metric :timestamp) metric)}]
-          (alter store assoc-in [metric-ns metric-type metric-id] new-metric))))
-    nil)
-  
-  (remove-metric [this metric-ns metric-type metric-id]
-    (dosync
-      (when-let [metrics (get-in @store [metric-ns metric-type])]
-        (alter store assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
-    nil)
-  
-  (read-metric [this metric-ns metric-type metric-id]
-    (if-let [current (get-in @store [metric-ns metric-type metric-id :current])]
-      current
-      nil))
-  
-  (list-metrics [this metric-ns metric-type]
-    (if-let [metrics-by-id (get-in @store [metric-ns metric-type])]
-      (into [] (sort (keys metrics-by-id)))
-      nil))
-  
-  (read-history [this metric-ns metric-type metric-id tags age limit]
-    (if-let [history (get-in @store [metric-ns metric-type metric-id :history])]
-      (let [now (System/currentTimeMillis)
-            actual-limit (or limit default-limit)
-            metrics (into [] 
-                      (for [metric (take actual-limit (vals history)) 
-                            :while (<= (- now (metric :timestamp)) (or age default-age)) :when (cset/subset? tags (metric :tags))] 
-                        metric))]
-        (if (seq metrics) 
-          {:size (count metrics) :limit actual-limit :values metrics}
-          nil))
-      nil))
-  
-  (remove-history [this metric-ns metric-type metric-id age]
-    (dosync
-      (when-let [history (get-in @store [metric-ns metric-type metric-id :history])]
-        (let [now (System/currentTimeMillis)
-              new-history (into (sorted-map-by >) (for [metric history :while (<= (- now ((val metric) :timestamp)) age)] metric))]
-          (alter store assoc-in [metric-ns metric-type metric-id :history] new-history))))
-    nil)
-  
-  (remove-history [this metric-ns metric-type age]
-    (doseq [metrics-by-id (get-in @store [metric-ns metric-type])] (remove-history this metric-ns metric-type (key metrics-by-id) age))
-    nil)
-  
-  (merge-history [this metric-ns metric-type tags age limit] {:message "Unsupported operation over memory store."})
-  
-  (aggregate-history [this metric-ns metric-type metric-id age from to options] {:message "Unsupported operation over memory store."})
-  
-  (list-types [this metric-ns]
-    (if-let [types-in-ns (@store metric-ns)]
-      (into [] (for [type-with-metrics types-in-ns :when (seq (val type-with-metrics))] (key type-with-metrics)))
-      nil)))
 
 
 (deftype DiskStore [connection-factory memory]
@@ -228,11 +162,6 @@
           ["SELECT type FROM metrics WHERE ns=? GROUP BY type ORDER BY type" metric-ns]
           (into [] (for [type all-types] (type :type))))))))  
 
-
-(defn new-memory-store [] 
-  (let [store (MemoryStore. (ref {}))]
-    (init store)
-    store))
 
 (defn new-disk-store [path] 
   (let [pool (doto (ComboPooledDataSource.)

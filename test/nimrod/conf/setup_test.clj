@@ -12,14 +12,8 @@
         (is (contains? @log "1:log1:1:true"))
         (is (contains? @log "2:log2:2:false")))))
 
-(deftest setup-memory-store
-    (let [setup? (atom false)]
-      (with-redefs [new-memory-store (fn [] (reset! setup? true))]
-        (setup "nimrod2.conf")
-        (is @setup?))))
-
 (deftest setup-disk-store
     (let [path (atom "")]
       (with-redefs [new-disk-store (fn [p] (reset! path p))]
-        (setup "nimrod3.conf")
+        (setup "nimrod2.conf")
         (is (= "nimrod-data/db" @path)))))
