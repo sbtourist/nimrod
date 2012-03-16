@@ -237,7 +237,7 @@
 (defn new-disk-store [path] 
   (let [pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=50;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=10000"))
+               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=10000"))
                (.setUser "SA")
                (.setPassword "")
                (.setMinPoolSize 1)
