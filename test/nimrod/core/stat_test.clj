@@ -19,3 +19,9 @@
 
 (deftest compute-percentiles
   (is (= {:50th 3 :75th 4} (percentiles [1 2 3 4 5] [50 75]))))
+
+(deftest compute-odd-median 
+  (is (= 3 (median [1 2 3 4 5] nth))))
+
+(deftest compute-even-median 
+  (is (= 6 (median [1 3 5 7 9 11] nth))))

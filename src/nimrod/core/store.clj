@@ -138,6 +138,8 @@
           (when (seq values)
             {:cardinality 
              (count values) 
+             :median
+             (median values #(get (nth %1 %2) :primary_value))
              :percentiles
              (into {} 
                (for [p (percentiles values (options :percentiles))]

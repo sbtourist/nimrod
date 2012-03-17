@@ -11,10 +11,11 @@
     (util/unrationalize (/ (+ previous-variance (* (- value previous-average) (- value current-average))) (dec samples)))
     0))
 
-(defn percentiles [samples percentages]
-  (into {}
-    (for [p percentages]
-      (let [rank (int (+ (* (/ p 100) samples) 0.5))] [p rank]))))
+(defn median [values index-fn]
+  (let [total (count values)]
+    (if (odd? total)
+      (index-fn values (int (java.lang.Math/floor (/ total 2))))
+      (util/unrationalize (/ (+ (index-fn values (dec (/ total 2))) (index-fn values (/ total 2))) 2)))))
 
 (defn percentiles [values percentages]
   (let [total (count values)]
