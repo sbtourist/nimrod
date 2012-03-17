@@ -1,12 +1,13 @@
 (ns nimrod.web.app
- (:use
+ (:require
    [clojure.string :as string :only [split]]
    [clojure.tools.logging :as log]
    [cheshire.core :as json]
    [compojure.core :as http]
    [compojure.route :as route]
    [compojure.handler :as handler]
-   [ring.util.response :as response]
+   [ring.util.response :as response])
+ (:use
    [nimrod.core.metric]
    [nimrod.core.store]
    [nimrod.log.tailer])

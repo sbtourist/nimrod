@@ -1,12 +1,13 @@
 (ns nimrod.core.store
- (:use
-   [nimrod.core.stat]
-   [nimrod.core.util]
+ (:require
    [cheshire.core :as json]
    [clojure.java.jdbc.internal :as jdbc]
    [clojure.java.jdbc :as sql]
    [clojure.set :as cset]
    [clojure.tools.logging :as log])
+ (:use
+   [nimrod.core.stat]
+   [nimrod.core.util])
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude (resultset-seq)))
 

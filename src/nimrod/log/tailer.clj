@@ -1,7 +1,8 @@
 (ns nimrod.log.tailer
- (:use
+ (:require
    [clojure.java.io :as io :only [file]]
-   [clojure.tools.logging :as log]
+   [clojure.tools.logging :as log])
+ (:use
    [nimrod.log.processor])
  (:import
    [tayler Tailer TailerListenerAdapter]))

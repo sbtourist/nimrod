@@ -19,5 +19,4 @@
  :dev-dependencies [[ring-mock "0.1.1"]]
  :repositories {"typesafe" "http://repo.typesafe.com/typesafe/releases"}
  :java-source-path "src"
- :aot [nimrod.web.startup]
- )
+ :aot [nimrod.web.startup])

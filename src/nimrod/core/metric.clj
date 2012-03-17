@@ -1,8 +1,10 @@
 (ns nimrod.core.metric
- (:use [nimrod.core.stat]
-   [nimrod.core.store]
-   [nimrod.core.util]
+ (:require
    [clojure.tools.logging :as log])
+ (:use 
+   [nimrod.core.stat]
+   [nimrod.core.store]
+   [nimrod.core.util])
  (:import [java.util.concurrent ArrayBlockingQueue]))
 
 (defprotocol MetricType

@@ -1,6 +1,7 @@
 (ns nimrod.conf.setup
+ (:require
+   [clojure.java.io :as io])
  (:use
-   [clojure.java.io :as io]
    [nimrod.core.metric]
    [nimrod.core.store]
    [nimrod.log.tailer])
