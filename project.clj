@@ -12,11 +12,8 @@
                 [tayler/tayler "1.1"]
                 [org.hsqldb/hsqldb "2.2.8"]
                 [c3p0/c3p0 "0.9.1.2"]
-                [com.google.guava/guava "r09"]
                 [org.slf4j/slf4j-api "1.6.1"]
-                [org.slf4j/slf4j-log4j12 "1.6.1"]
-                ]
+                [org.slf4j/slf4j-log4j12 "1.6.1"]]
  :dev-dependencies [[ring-mock "0.1.1"]]
  :repositories {"typesafe" "http://repo.typesafe.com/typesafe/releases"}
- :java-source-path "src"
  :aot [nimrod.web.startup])
