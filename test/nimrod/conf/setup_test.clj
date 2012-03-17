@@ -7,7 +7,8 @@
 
 (deftest setup-logs
     (let [log (atom #{})]
-      (with-redefs [start-tailer #(swap! log conj (str %1 ":" %2 ":" %3 ":" %4))]
+      (with-redefs [start-tailer #(swap! log conj (str %1 ":" %2 ":" %3 ":" %4))
+                    new-disk-store (fn [_] nil)]
         (setup "nimrod1.conf")
         (is (contains? @log "1:log1:1:true"))
         (is (contains? @log "2:log2:2:false")))))
