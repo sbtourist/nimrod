@@ -41,13 +41,13 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, metric LONGVARCHAR, primary_value DOUBLE, PRIMARY KEY (ns,type,id,timestamp))")))
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT GENERATED ALWAYS AS IDENTITY, timestamp BIGINT, primary_value DOUBLE, metric LONGVARCHAR, PRIMARY KEY (ns,type,id,seq))")))
       (catch Exception ex))
     (try 
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE INDEX timestamp_value ON metrics (timestamp)")))
+            "CREATE INDEX timestamp_idx ON metrics (timestamp)")))
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
@@ -57,10 +57,9 @@
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
-      (sql/transaction (sql/update-or-insert-values 
+      (sql/transaction (sql/insert-record 
                          "metrics"
-                         ["ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id (metric :timestamp)]
-                         {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "metric" (json/generate-string metric) "primary_value" primary})))
+                         {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" (metric :timestamp) "primary_value" primary "metric" (json/generate-string metric)})))
     (dosync
       (alter memory assoc-in [metric-ns metric-type metric-id] metric)))
   
@@ -131,7 +130,7 @@
     (sql/with-connection connection-factory
       (sql/transaction 
         (let [values (sql/with-query-results r 
-                       ["SELECT timestamp, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
+                       ["SELECT seq, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
                         metric-ns metric-type metric-id 
                         (max (- (System/currentTimeMillis) (or age default-age)) (or from 0)) (or to Long/MAX_VALUE)]
                        (let [accumulator (reduce #(conj! %1 %2) (transient []) r)] (persistent! accumulator)))]
@@ -145,7 +144,7 @@
                (for [p (percentiles values (options :percentiles))]
                  (sql/with-query-results 
                    r 
-                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=?" metric-ns metric-type metric-id ((val p) :timestamp)]
+                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND seq=?" metric-ns metric-type metric-id ((val p) :seq)]
                    [(key p) (row-to-json (first r))])))})))))
   
   (list-types [this metric-ns]
