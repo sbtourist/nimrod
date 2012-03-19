@@ -54,7 +54,7 @@
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 100000000"))))
+        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 1000000"))))
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
