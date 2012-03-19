@@ -24,7 +24,7 @@
     (testing "Current metric value"
       (is (= metric-1 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= {:values [metric-1] :size 1 :limit default-limit} (read-history store metric-ns metric-type metric-id #{} nil nil))))))
+      (is (= {:values [metric-1] :size 1 :limit history-limit} (read-history store metric-ns metric-type metric-id #{} nil nil))))))
 
 (defn set-and-read-metric-history-with-old-values-too [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -37,7 +37,7 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= {:values [metric-3 metric-2 metric-1] :size 3 :limit default-limit} (read-history store metric-ns metric-type metric-id #{} nil nil))))))
+      (is (= {:values [metric-3 metric-2 metric-1] :size 3 :limit history-limit} (read-history store metric-ns metric-type metric-id #{} nil nil))))))
 
 (defn set-and-read-metric-history-by-age [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -51,7 +51,7 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= {:values [metric-3] :size 1 :limit default-limit} (read-history store metric-ns metric-type metric-id #{} 1000 nil))))))
+      (is (= {:values [metric-3] :size 1 :limit history-limit} (read-history store metric-ns metric-type metric-id #{} 1000 nil))))))
 
 (defn set-and-read-metric-history-by-tags [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -64,7 +64,7 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= {:values [metric-1] :size 1 :limit default-limit} (read-history store metric-ns metric-type metric-id #{"t"} nil nil))))))
+      (is (= {:values [metric-1] :size 1 :limit history-limit} (read-history store metric-ns metric-type metric-id #{"t"} nil nil))))))
 
 (defn set-and-read-metric-history-with-limit [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -104,7 +104,7 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (is (= {:values [metric-3] :size 1 :limit default-limit} (read-history store metric-ns metric-type metric-id #{} nil nil))))))
+      (is (= {:values [metric-3] :size 1 :limit history-limit} (read-history store metric-ns metric-type metric-id #{} nil nil))))))
 
 (defn set-and-remove-multiple-metrics-history-by-age [store]
   (let [metric-ns "1" metric-type "gauge" metric-id-1 "1" metric-id-2 "2" metric-id-3 "3" 
@@ -122,7 +122,7 @@
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id-3))))
     (testing "Metric history values"
-      (is (= {:values [metric-3] :size 1 :limit default-limit} (read-history store metric-ns metric-type metric-id-3 #{} nil nil))))))
+      (is (= {:values [metric-3] :size 1 :limit history-limit} (read-history store metric-ns metric-type metric-id-3 #{} nil nil))))))
 
 (defn set-and-merge-metric-history [store]
   (let [metric-ns "1" metric-type "gauge" 
@@ -147,7 +147,7 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 3 :median 2.0 :percentiles {:50th metric-2}} (aggregate-history store metric-ns metric-type metric-id nil nil nil {:percentiles [50]}))))))
+      (is (= {:cardinality 3 :median 2.0 :percentiles {:50th metric-2}} (aggregate-history store metric-ns metric-type metric-id nil nil nil nil {:percentiles [50]}))))))
 
 (defn set-and-aggregate-metric-history-with-time-interval [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -158,7 +158,7 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 2 :median 1.5 :percentiles {:50th metric-1}} (aggregate-history store metric-ns metric-type metric-id nil 1 2 {:percentiles [50]}))))))
+      (is (= {:cardinality 2 :median 1.5 :percentiles {:50th metric-1}} (aggregate-history store metric-ns metric-type metric-id nil 1 2 nil {:percentiles [50]}))))))
 
 (defn set-and-aggregate-metric-history-with-age [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
@@ -169,7 +169,7 @@
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
-      (is (= {:cardinality 1 :median 3.0 :percentiles {:50th metric-3}} (aggregate-history store metric-ns metric-type metric-id 1000 1 nil {:percentiles [50]}))))))
+      (is (= {:cardinality 1 :median 3.0 :percentiles {:50th metric-3}} (aggregate-history store metric-ns metric-type metric-id 1000 1 nil nil {:percentiles [50]}))))))
 
 (defn list-metrics-by-type [store]
   (let [metric-ns "1" metric-type "gauge" 

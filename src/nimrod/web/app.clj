@@ -123,10 +123,10 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+" :percentiles #"[\d|,]+"] 
-    [log-id metric-type metric-id age from to percentiles]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+" :limit #"\d+" :percentiles #"[\d|,]+"] 
+    [log-id metric-type metric-id age from to limit percentiles]
     (if-let [metric-type (type-of metric-type)]
-      (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (parse-long age) (parse-long from) (parse-long to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
+      (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (parse-long age) (parse-long from) (parse-long to) (parse-long limit) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
