@@ -42,7 +42,7 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT GENERATED ALWAYS AS IDENTITY, timestamp BIGINT, primary_value DOUBLE, metric LONGVARCHAR, PRIMARY KEY (ns,type,id,seq))")))
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT GENERATED ALWAYS AS IDENTITY, primary_value DOUBLE, metric LONGVARCHAR, PRIMARY KEY (ns,type,id,timestamp,seq))")))
       (catch Exception ex))
     (try 
       (sql/with-connection connection-factory
@@ -131,7 +131,7 @@
     (sql/with-connection connection-factory
       (sql/transaction 
         (let [values (sql/with-query-results r 
-                       ["SELECT seq, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
+                       ["SELECT timestamp, seq, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
                         metric-ns metric-type metric-id 
                         (max (- (System/currentTimeMillis) (or age default-age)) (or from 0)) (or to Long/MAX_VALUE)]
                        (let [accumulator (reduce #(conj! %1 %2) (transient []) r)] (persistent! accumulator)))]
@@ -145,7 +145,7 @@
                (for [p (percentiles values (options :percentiles))]
                  (sql/with-query-results 
                    r 
-                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND seq=?" metric-ns metric-type metric-id ((val p) :seq)]
+                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=? AND seq=?" metric-ns metric-type metric-id ((val p) :timestamp) ((val p) :seq)]
                    [(key p) (row-to-json (first r))])))})))))
   
   (list-types [this metric-ns]
