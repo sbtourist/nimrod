@@ -21,4 +21,6 @@
   (let [total (count values)]
     (into {} 
       (for [p percentages]
-        (let [rank (int (+ (* (/ p 100) total) 0.5))] [(keyword (str p "th")) (nth values (dec rank))])))))
+        (if (and (> p 0) (<= p 100))
+          (let [rank (int (+ (* (/ p 100) total) 0.5))] [(keyword (str p "th")) (nth values (dec rank))])
+          (throw (IllegalArgumentException. (str "Out of bounds percentage: " p))))))))
