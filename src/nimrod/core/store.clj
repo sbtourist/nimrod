@@ -11,10 +11,12 @@
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude (resultset-seq)))
 
-(defonce default-age Long/MAX_VALUE)
-(defonce history-limit 1000)
-(defonce aggregate-limit 1000000)
+(defonce default-result-cache-size 1000000)
 
+(defonce default-aggregate-age 60000)
+
+(defonce default-age Long/MAX_VALUE)
+(defonce default-limit 1000)
 
 (defn- row-to-json [row]
   (json/parse-string (row :metric) true (fn [_] #{})))
@@ -29,7 +31,7 @@
   (read-history [this metric-ns metric-type metric-id tags age limit])
   (remove-history [this metric-ns metric-type metric-id age] [this metric-ns metric-type age])
   (merge-history [this metric-ns metric-type tags age limit])
-  (aggregate-history [this metric-ns metric-type metric-id age from to limit options])
+  (aggregate-history [this metric-ns metric-type metric-id age from to options])
   (list-types [this metric-ns]))
 
 
@@ -55,7 +57,7 @@
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE DEFAULT RESULT MEMORY ROWS 1000000"))))
+        (sql/do-prepared (str "SET DATABASE DEFAULT RESULT MEMORY ROWS " default-result-cache-size)))))
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
@@ -100,11 +102,11 @@
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit history-limit) " USING INDEX") 
+                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX") 
                           metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age))]
                          (when (seq r) 
                            (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
-                             {:size (count metrics) :limit (or limit history-limit) :values metrics}))))))
+                             {:size (count metrics) :limit (or limit default-limit) :values metrics}))))))
   
   (remove-history [this metric-ns metric-type metric-id age]
     (sql/with-connection connection-factory 
@@ -122,24 +124,25 @@
     (sql/with-connection connection-factory 
       (sql/transaction (sql/with-query-results 
                          r 
-                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit history-limit) " USING INDEX")
+                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX")
                           metric-ns metric-type (- (System/currentTimeMillis) (or age default-age))]
                          (when (seq r)
                            (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
-                             {:size (count metrics) :limit (or limit history-limit) :values metrics}))))))
+                             {:size (count metrics) :limit (or limit default-limit) :values metrics}))))))
   
-  (aggregate-history [this metric-ns metric-type metric-id age from to limit options]
+  (aggregate-history [this metric-ns metric-type metric-id age from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
-        (let [values (sql/with-query-results r 
-                       [(str "SELECT timestamp, seq, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC LIMIT " (or limit aggregate-limit)) 
-                        metric-ns metric-type metric-id 
-                        (max (- (System/currentTimeMillis) (or age default-age)) (or from 0)) (or to Long/MAX_VALUE)]
+        (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-aggregate-age)) from)
+              actual-to (or to Long/MAX_VALUE)
+              values (sql/with-query-results r 
+                       ["SELECT timestamp, seq, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
+                        metric-ns metric-type metric-id actual-from actual-to]
                        (let [accumulator (reduce #(conj! %1 %2) (transient []) r)] (persistent! accumulator)))]
           (when (seq values)
-            {:limit
-             (or limit aggregate-limit)
-             :cardinality 
+            {:time 
+             {:from actual-from :to actual-to}
+             :size 
              (count values) 
              :median
              (median values #(get (nth %1 %2) :primary_value))

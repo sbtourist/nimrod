@@ -15,9 +15,6 @@
   (is (= 4 (variance 4 0 2 3 6))))
 
 (deftest compute-percentiles
-  (is (= {50 3 75 4} (percentiles 5 [50 75]))))
-
-(deftest compute-percentiles
   (is (= {:50th 3 :75th 4} (percentiles [1 2 3 4 5] [50 75]))))
 
 (deftest compute-odd-median 
