@@ -11,16 +11,14 @@
     (util/unrationalize (/ (+ previous-variance (* (- value previous-average) (- value current-average))) (dec samples)))
     0))
 
-(defn median [values index-fn]
-  (let [total (count values)]
-    (if (odd? total)
-      (index-fn values (int (java.lang.Math/floor (/ total 2))))
-      (util/unrationalize (/ (+ (index-fn values (dec (/ total 2))) (index-fn values (/ total 2))) 2)))))
+(defn median [total index-fn]
+  (if (odd? total)
+    (index-fn (int (java.lang.Math/floor (/ total 2))))
+    (util/unrationalize (/ (+ (index-fn (dec (/ total 2))) (index-fn (/ total 2))) 2))))
 
-(defn percentiles [values percentages]
-  (let [total (count values)]
-    (into {} 
-      (for [p percentages]
-        (if (and (> p 0) (<= p 100))
-          (let [rank (int (+ (* (/ p 100) total) 0.5))] [(keyword (str p "th")) (nth values (dec rank))])
-          (throw (IllegalArgumentException. (str "Out of bounds percentage: " p))))))))
+(defn percentiles [total percentages index-fn]
+  (into {} 
+    (for [p percentages]
+      (if (and (> p 0) (<= p 100))
+        (let [rank (int (+ (* (/ p 100) total) 0.5))] [(keyword (str p "th")) (index-fn (dec rank))])
+        (throw (IllegalArgumentException. (str "Out of bounds percentage: " p)))))))

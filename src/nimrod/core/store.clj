@@ -133,26 +133,27 @@
   (aggregate-history [this metric-ns metric-type metric-id age from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
+        (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
         (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-aggregate-age)) from)
               actual-to (or to Long/MAX_VALUE)
-              values (sql/with-query-results r 
-                       ["SELECT timestamp, seq, primary_value FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY primary_value ASC" 
-                        metric-ns metric-type metric-id actual-from actual-to]
-                       (let [accumulator (reduce #(conj! %1 %2) (transient []) r)] (persistent! accumulator)))]
-          (when (seq values)
+              total (sql/with-query-results total-results
+                      ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to]
+                      ((first total-results) :total))
+              query (sql/prepare-statement 
+                      (sql/connection) 
+                      (str "SELECT metric, primary_value FROM metrics WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " ORDER BY primary_value ASC") 
+                      :concurrency :read-only :result-type :scroll-insensitive :fetch-size 1)
+              rs (.executeQuery query)]
+          (if (.first rs)
             {:time 
              {:from actual-from :to actual-to}
              :size 
-             (count values) 
+             total
              :median
-             (median values #(get (nth %1 %2) :primary_value))
+             (median total #(when (.absolute rs (inc %1)) (.getDouble rs 2)))
              :percentiles
-             (into {} 
-               (for [p (percentiles values (options :percentiles))]
-                 (sql/with-query-results 
-                   r 
-                   ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp=? AND seq=?" metric-ns metric-type metric-id ((val p) :timestamp) ((val p) :seq)]
-                   [(key p) (row-to-json (first r))])))})))))
+             (percentiles total (options :percentiles) #(when (.absolute rs (inc %1)) (json/parse-string (.getString rs 1) true (fn [_] #{}))))
+             })))))
   
   (list-types [this metric-ns]
     (sql/with-connection connection-factory
