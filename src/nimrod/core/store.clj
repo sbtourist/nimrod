@@ -13,10 +13,7 @@
 
 (defonce default-result-cache-size 1000000)
 
-(defonce default-aggregate-age 60000)
-
-(defonce default-age Long/MAX_VALUE)
-(defonce default-limit 1000)
+(defonce default-age 60000)
 
 (defn- row-to-json [row]
   (json/parse-string (row :metric) true (fn [_] #{})))
@@ -24,14 +21,19 @@
 
 (defprotocol Store
   (init [this])
+  
   (set-metric [this metric-ns metric-type metric-id metric primary])
   (remove-metric [this metric-ns metric-type metric-id])
   (read-metric [this metric-ns metric-type metric-id])
+  
   (list-metrics [this metric-ns metric-type])
-  (read-history [this metric-ns metric-type metric-id tags age limit])
-  (remove-history [this metric-ns metric-type metric-id age] [this metric-ns metric-type age])
-  (merge-history [this metric-ns metric-type tags age limit])
+  
+  (read-history [this metric-ns metric-type metric-id tags age from to])
+  (merge-history [this metric-ns metric-type tags age from to])
+  
+  (remove-history [this metric-ns metric-type metric-id age from to])
   (aggregate-history [this metric-ns metric-type metric-id age from to options])
+  
   (list-types [this metric-ns]))
 
 
@@ -98,43 +100,43 @@
                          (when (seq r)
                            (into [] (map #(get %1 :id) r)))))))
   
-  (read-history [this metric-ns metric-type metric-id tags age limit]
-    (sql/with-connection connection-factory 
-      (sql/transaction (sql/with-query-results 
-                         r 
-                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX") 
-                          metric-ns metric-type metric-id (- (System/currentTimeMillis) (or age default-age))]
-                         (when (seq r) 
-                           (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
-                             {:size (count metrics) :limit (or limit default-limit) :values metrics}))))))
+  (read-history [this metric-ns metric-type metric-id tags age from to]
+    (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
+          actual-to (or to Long/MAX_VALUE)]
+      (sql/with-connection connection-factory 
+        (sql/transaction (sql/with-query-results 
+                           r 
+                           ["SELECT metric FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp DESC" 
+                            metric-ns metric-type metric-id actual-from actual-to]
+                           (when (seq r) 
+                             (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
+                               {:time {:from actual-from :to actual-to} :size (count metrics) :values metrics})))))))
   
-  (remove-history [this metric-ns metric-type metric-id age]
-    (sql/with-connection connection-factory 
-      (sql/transaction (sql/delete-rows 
-                         "metrics" 
-                         ["ns=? AND type=? AND id=? AND timestamp<=?" metric-ns metric-type metric-id (- (System/currentTimeMillis) age)]))))
+  (merge-history [this metric-ns metric-type tags age from to]
+    (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
+          actual-to (or to Long/MAX_VALUE)]
+      (sql/with-connection connection-factory 
+        (sql/transaction (sql/with-query-results 
+                           r 
+                           ["SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp DESC"
+                            metric-ns metric-type actual-from actual-to]
+                           (when (seq r)
+                             (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
+                               {:time {:from actual-from :to actual-to} :size (count metrics) :values metrics})))))))
   
-  (remove-history [this metric-ns metric-type age]
-    (sql/with-connection connection-factory 
-      (sql/transaction (sql/delete-rows 
-                         "metrics" 
-                         ["ns=? AND type=? AND timestamp<=?" metric-ns metric-type (- (System/currentTimeMillis) age)]))))
-  
-  (merge-history [this metric-ns metric-type tags age limit]
-    (sql/with-connection connection-factory 
-      (sql/transaction (sql/with-query-results 
-                         r 
-                         [(str "SELECT metric FROM metrics WHERE ns=? AND type=? AND timestamp>=? ORDER BY timestamp DESC LIMIT " (or limit default-limit) " USING INDEX")
-                          metric-ns metric-type (- (System/currentTimeMillis) (or age default-age))]
-                         (when (seq r)
-                           (let [metrics (into [] (for [metric (map row-to-json r) :when (cset/subset? tags (metric :tags))] metric))]
-                             {:size (count metrics) :limit (or limit default-limit) :values metrics}))))))
+  (remove-history [this metric-ns metric-type metric-id age from to]
+    (let [actual-from (or from 0) 
+          actual-to (if (nil? to) (- (System/currentTimeMillis) (or age default-age)) to)]
+      (sql/with-connection connection-factory 
+        (sql/transaction (sql/delete-rows 
+                           "metrics" 
+                           ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to])))))
   
   (aggregate-history [this metric-ns metric-type metric-id age from to options]
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
-        (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-aggregate-age)) from)
+        (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
               actual-to (or to Long/MAX_VALUE)
               total (sql/with-query-results total-results
                       ["SELECT COUNT(*) AS total FROM metrics WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to]

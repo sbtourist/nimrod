@@ -110,16 +110,17 @@
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] 
-    [log-id metric-type metric-id age tags limit]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
+    [log-id metric-type metric-id tags age from to]
     (if-let [metric-type (type-of metric-type)]
-      (if-let [result (read-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long limit))]
+      (if-let [result (read-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to))]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/history/merge" :age #"\d+" :tags #"[^/?#]+" :limit #"\d+"] [log-id metric-type age tags limit]
-    (if-let [metric-type (type-of metric-type)]
-      (if-let [result (merge-history @metrics-store log-id metric-type (or (extract-tags tags) #{}) (parse-long age) (parse-long limit))]
+  (http/GET ["/logs/:log-id/:metric-type/history/merge" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
+    [log-id metric-type tags age from to]
+    (if-let [metric-type (type-of metric-type)]  
+      (if-let [result (merge-history @metrics-store log-id metric-type (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to))]
         (cors-response :ok result)
         (cors-response :not-found))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
@@ -130,16 +131,11 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :age #"\d+"] [log-id metric-type metric-id age]
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
+    [log-id metric-type metric-id age from to]
     (if-let [metric-type (type-of metric-type)]
       (do
-        (remove-history @metrics-store log-id metric-type metric-id (or (parse-long age) Long/MAX_VALUE))
-        (std-response :no-content))
-      (std-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/POST ["/logs/:log-id/:metric-type/history/delete" :age #"\d+"] [log-id metric-type age]
-    (if-let [metric-type (type-of metric-type)]
-      (do
-        (remove-history @metrics-store log-id metric-type (or (parse-long age) Long/MAX_VALUE))
+        (remove-history @metrics-store log-id metric-type metric-id (parse-long age) (parse-long from) (parse-long to))
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
