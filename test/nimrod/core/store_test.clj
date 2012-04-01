@@ -166,7 +166,7 @@
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id nil 1 2 {:percentiles [50]})]
         (is (= 2 (aggregate :size)))
         (is (= 1.5 (aggregate :median)))
-        (is (= {:50th metric-1} (aggregate :percentiles)))))))
+        (is (= {:50th metric-2} (aggregate :percentiles)))))))
 
 (defn set-and-aggregate-metric-history-by-age [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 

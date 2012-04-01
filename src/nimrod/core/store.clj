@@ -153,9 +153,9 @@
              :size 
              total
              :median
-             (median total #(when (.absolute rs (inc %1)) (.getDouble rs 2)))
+             (median total #(when (.absolute rs %1) (.getDouble rs 2)))
              :percentiles
-             (percentiles total (options :percentiles) #(when (.absolute rs (inc %1)) (json/parse-string (.getString rs 1) true (fn [_] #{}))))
+             (percentiles total (options :percentiles) #(when (.absolute rs %1) (json/parse-string (.getString rs 1) true (fn [_] #{}))))
              })))))
   
   (list-types [this metric-ns]
