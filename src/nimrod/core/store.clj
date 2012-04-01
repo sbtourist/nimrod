@@ -11,7 +11,8 @@
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude (resultset-seq)))
 
-(defonce default-result-cache-size 1000000)
+(defonce default-cache-entries 1000)
+(defonce default-cache-results 1000000)
 
 (defonce default-age 60000)
 
@@ -37,7 +38,7 @@
   (list-types [this metric-ns]))
 
 
-(deftype DiskStore [connection-factory memory]
+(deftype DiskStore [connection-factory memory options]
   
   Store
   
@@ -59,7 +60,7 @@
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
-        (sql/do-prepared (str "SET DATABASE DEFAULT RESULT MEMORY ROWS " default-result-cache-size)))))
+        (sql/do-prepared (str "SET DATABASE DEFAULT RESULT MEMORY ROWS " (or (options :cache.results) default-cache-results))))))
   
   (set-metric [this metric-ns metric-type metric-id metric primary]
     (sql/with-connection connection-factory 
@@ -166,10 +167,16 @@
           (into [] (for [type all-types] (type :type))))))))
 
 
-(defn new-disk-store [path] 
-  (let [pool (doto (ComboPooledDataSource.)
+(defn new-disk-store [path & options] 
+  (let [options (into {} options)
+        cache-entries (or (options :cache.entries) default-cache-entries)
+        pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-               (.setJdbcUrl (str "jdbc:hsqldb:file:" path ";shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;hsqldb.cache_rows=1000;hsqldb.cache_size=10000"))
+               (.setJdbcUrl (str 
+                              "jdbc:hsqldb:file:" path ";"
+                              "shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;"
+                              "hsqldb.cache_rows=" cache-entries ";" 
+                              "hsqldb.cache_size=" cache-entries))
                (.setUser "SA")
                (.setPassword "")
                (.setMinPoolSize 1)
@@ -177,7 +184,7 @@
                (.setInitialPoolSize 0)
                (.setAcquireIncrement 1)
                (.setNumHelperThreads 5))
-        store (DiskStore. {:datasource pool} (ref {}))]
+        store (DiskStore. {:datasource pool} (ref {}) options)]
     (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool))))
     (init store)
     store))

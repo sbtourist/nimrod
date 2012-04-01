@@ -12,11 +12,12 @@
     (doseq [log logs] (start-tailer (key log) (.get (val log) "source") (.get (val log) "interval") (.get (val log) "end")))))
 
 (defn- setup-store [conf]
-  (let [store (or (.get conf "store") {"type" "disk"})]
-    (let [type (.get store "type")]
-      (condp = type
-        "disk" (setup-metric-store (new-disk-store "nimrod-data/db"))
-        (throw (IllegalStateException. (str "Bad store configuration: " type)))))))
+  (let [store (into {"type" "disk"} (.get conf "store"))
+        options (into {} (.get store "options"))
+        type (store "type")]
+    (condp = type
+      "disk" (setup-metric-store (new-disk-store "nimrod-data/db" (into {} (for [kv options] (into {} (map #(vector (str (key kv) "." (key %1)) (val %1)) (val kv)))))))
+      (throw (IllegalStateException. (str "Bad store configuration: " type))))))
 
 (defn setup [source]
   (let [conf (.unwrapped (.root (ConfigFactory/parseFile (io/file source))))]
