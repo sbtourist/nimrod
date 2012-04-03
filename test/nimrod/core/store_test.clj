@@ -121,8 +121,11 @@
     (remove-history store metric-ns metric-type metric-id nil 0 Long/MAX_VALUE)
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
-    (testing "Metric history is nil"
-      (is (nil? (read-history store metric-ns metric-type metric-id #{} nil 0 Long/MAX_VALUE))))))
+    (testing "Current metric value is not nil"
+      (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
+    (testing "Metric history keeps current value"
+      (let [history (read-history store metric-ns metric-type metric-id #{} nil 0 Long/MAX_VALUE)]
+        (is (= [metric-3] (history :values)))))))
 
 (defn set-and-remove-metric-history-by-age [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 

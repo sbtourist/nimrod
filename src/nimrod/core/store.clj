@@ -137,7 +137,8 @@
       (sql/with-connection connection-factory 
         (sql/transaction (sql/delete-rows 
                            "metrics" 
-                           ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to])))))
+                           ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? AND timestamp != (SELECT MAX(timestamp) FROM metrics WHERE ns=? AND type=? AND id=?)" 
+                            metric-ns metric-type metric-id actual-from actual-to metric-ns metric-type metric-id])))))
   
   (aggregate-history [this metric-ns metric-type metric-id age from to options]
     (sql/with-connection connection-factory
