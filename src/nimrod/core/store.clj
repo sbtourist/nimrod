@@ -54,6 +54,12 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
+            "CREATE INDEX id_idx ON metrics (id)")))
+      (catch Exception ex))
+    (try 
+      (sql/with-connection connection-factory
+        (sql/transaction 
+          (sql/do-prepared 
             "CREATE INDEX timestamp_idx ON metrics (timestamp)")))
       (catch Exception ex))
     (sql/with-connection connection-factory
