@@ -192,6 +192,7 @@
                (.setAcquireIncrement 1)
                (.setNumHelperThreads 5))
         store (DiskStore. {:datasource pool} (ref {}) options)]
+    (log/info (str "Starting DiskStore with options: " options))
     (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool))))
     (init store)
     store))

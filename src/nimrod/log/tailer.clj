@@ -25,7 +25,7 @@
 
 (defn start-tailer [id log interval end]
   (let [tailer (create-tailer id log interval end)]
-    (if end (log/info (str "Start listening to log: " log)) (log/info (str "Start processing log: " log)))
+    (if end (log/info (str "Start processing log from end: " log)) (log/info (str "Start processing log from beginning: " log)))
     (dosync
       (if (contains? @tailers id)
         (throw (IllegalStateException. (str "Duplicated log identifier: " id)))
