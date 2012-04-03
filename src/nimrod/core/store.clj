@@ -13,6 +13,7 @@
 
 (defonce default-cache-entries 1000)
 (defonce default-cache-results 1000000)
+(defonce default-defrag-limit 0)
 
 (defonce default-age 60000)
 
@@ -176,12 +177,14 @@
 
 (defn new-disk-store [path & options] 
   (let [options (into {} options)
+        defrag-limit (or (options :defrag.limit) default-defrag-limit)
         cache-entries (or (options :cache.entries) default-cache-entries)
         pool (doto (ComboPooledDataSource.)
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
                (.setJdbcUrl (str 
                               "jdbc:hsqldb:file:" path ";"
                               "shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;"
+                              "hsqldb.defrag_limit=" defrag-limit ";" 
                               "hsqldb.cache_rows=" cache-entries ";" 
                               "hsqldb.cache_size=" cache-entries))
                (.setUser "SA")
