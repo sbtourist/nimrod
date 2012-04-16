@@ -11,11 +11,15 @@
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude (resultset-seq)))
 
+(defonce oneDay 86400000)
+(defonce oneHour 3600000)
+(defonce oneMinute 60000)
+
 (defonce default-cache-entries 1000)
 (defonce default-cache-results 1000000)
 (defonce default-defrag-limit 0)
 
-(defonce default-age 60000)
+(defonce default-age oneMinute)
 
 (defn- row-to-json [row]
   (json/parse-string (row :metric) true (fn [_] #{})))
@@ -136,10 +140,19 @@
     (let [actual-from (or from 0) 
           actual-to (if (nil? to) (- (System/currentTimeMillis) (or age default-age)) to)]
       (sql/with-connection connection-factory 
-        (sql/transaction (sql/delete-rows 
-                           "metrics" 
-                           ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? AND timestamp != (SELECT MAX(timestamp) FROM metrics WHERE ns=? AND type=? AND id=?)" 
-                            metric-ns metric-type metric-id actual-from actual-to metric-ns metric-type metric-id])))))
+        (let [timestamps (sql/transaction 
+                           (sql/with-query-results r
+                             ["SELECT MIN(timestamp) AS mints, MAX(timestamp) AS maxts FROM metrics WHERE ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
+                             (first r)))
+              min-timestamp (max (timestamps :mints) actual-from)
+              max-timestamp (min (timestamps :maxts) actual-to)]
+          (loop [upbound (min (+ min-timestamp oneDay) max-timestamp)]
+            (sql/transaction 
+              (sql/delete-rows "metrics" 
+                ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<?"
+                 metric-ns metric-type metric-id min-timestamp upbound]))
+            (when (< upbound max-timestamp)
+              (recur (min (+ upbound 3600000) max-timestamp))))))))
   
   (aggregate-history [this metric-ns metric-type metric-id age from to options]
     (sql/with-connection connection-factory
@@ -183,7 +196,7 @@
                (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
                (.setJdbcUrl (str 
                               "jdbc:hsqldb:file:" path ";"
-                              "shutdown=true;hsqldb.log_size=10;hsqldb.cache_file_scale=128;"
+                              "shutdown=true;hsqldb.applog=1;hsqldb.log_size=10;hsqldb.cache_file_scale=128;"
                               "hsqldb.defrag_limit=" defrag-limit ";" 
                               "hsqldb.cache_rows=" cache-entries ";" 
                               "hsqldb.cache_size=" cache-entries))
