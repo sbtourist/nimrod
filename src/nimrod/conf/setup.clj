@@ -16,7 +16,7 @@
         options (into {} (.get store "options"))
         type (store "type")]
     (condp = type
-      "disk" (setup-metric-store (new-disk-store "nimrod-data/db" (into {} (for [kv options] (into {} (map #(vector (str (key kv) "." (key %1)) (val %1)) (val kv)))))))
+      "disk" (setup-metric-store (new-disk-store "nimrod-data/db" (into {} (for [kv options] (into {} (map #(vector (keyword (str (key kv) "." (key %1))) (val %1)) (val kv)))))))
       (throw (IllegalStateException. (str "Bad store configuration: " type))))))
 
 (defn setup [source]

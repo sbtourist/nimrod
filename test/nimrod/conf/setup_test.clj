@@ -18,4 +18,4 @@
       (with-redefs [new-disk-store (fn [p o] (reset! path p) (reset! options o))]
         (setup "nimrod2.conf")
         (is (= "nimrod-data/db" @path))
-        (is (= {"cache.entries" 1 "cache.results" 2 "defrag.limit" 3} @options)))))
+        (is (= {:cache.entries 1 :cache.results 2 :defrag.limit 3} @options)))))
