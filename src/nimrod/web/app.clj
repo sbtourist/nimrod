@@ -117,13 +117,6 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/history/merge" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
-    [log-id metric-type tags age from to]
-    (if-let [metric-type (type-of metric-type)]  
-      (if-let [result (merge-history @metrics-store log-id metric-type (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to))]
-        (cors-response :ok result)
-        (cors-response :not-found))
-      (std-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+" :percentiles #"[\d|,]+"] 
     [log-id metric-type metric-id age from to percentiles]
     (if-let [metric-type (type-of metric-type)]

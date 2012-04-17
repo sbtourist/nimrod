@@ -9,12 +9,13 @@
 
 (defprotocol MetricType
   (name-of [this])
-  (compute [this id timestamp current-value new-value tags])
-  (primary [this metric]))
+  (raw-value-of [this metric])
+  (compute [this id timestamp current-value new-value tags]))
 
 (deftype Alert []
   MetricType
   (name-of [this] "nimrod.core.metric.Alert")
+  (raw-value-of [this metric] (metric :timestamp))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) alert new-value]
       (if-let [current current-value]
@@ -27,12 +28,12 @@
          :timestamp new-time
          :samples 1
          :alert alert
-         :tags tags})))
-  (primary [this metric] (metric :timestamp)))
+         :tags tags}))))
 
 (deftype Gauge []
   MetricType
   (name-of [this] "nimrod.core.metric.Gauge")
+  (raw-value-of [this metric] (metric :gauge))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong new-value)]
       (if-let [current current-value]
@@ -54,12 +55,12 @@
          :samples 1
          :gauge-average gauge
          :gauge-variance 0
-         :tags tags})))
-  (primary [this metric] (metric :gauge)))
+         :tags tags}))))
 
 (deftype Counter []
   MetricType
   (name-of [this] "nimrod.core.metric.Counter")
+  (raw-value-of [this metric] (metric :counter))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) increment (Long/parseLong new-value)]
       (if-let [current current-value]
@@ -84,12 +85,12 @@
          :increment-average increment
          :increment-variance 0
          :latest-increment increment
-         :tags tags})))
-  (primary [this metric] (metric :counter)))
+         :tags tags}))))
 
 (deftype Timer []
   MetricType
   (name-of [this] "nimrod.core.metric.Timer")
+  (raw-value-of [this metric] (metric :elapsed-time))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) timer new-time action new-value]
       (if-let [current current-value]
@@ -114,8 +115,7 @@
           :else (throw (IllegalStateException. (str "Bad timer action: " action))))
         (if (= "start" action)
           {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
-          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action)))))))
-  (primary [this metric] (metric :elapsed-time)))
+          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action))))))))
 
 (defn new-alert [] (Alert.))
 
@@ -139,5 +139,5 @@
   (let [current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
         new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
     (try 
-      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (primary type new-metric)) 
+      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (raw-value-of type new-metric)) 
       (catch Exception ex (log/error (.getMessage ex) ex)))))
