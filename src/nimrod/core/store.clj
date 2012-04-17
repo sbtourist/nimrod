@@ -23,7 +23,7 @@
 (defonce default-age oneMinute)
 
 (defn- to-json [v]
-  (json/parse-string v true (fn [_] #{})))
+  (json/parse-smile v true (fn [_] #{})))
 
 (defn- sample? [old-value new-value threshold]
   (not (= (int (/ old-value threshold)) (int (/ new-value threshold)))))
@@ -54,9 +54,9 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, raw DOUBLE, metric LONGVARCHAR, PRIMARY KEY (ns,type,id))")
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id))")
           (sql/do-prepared 
-            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT GENERATED ALWAYS AS IDENTITY, raw DOUBLE, metric LONGVARCHAR, PRIMARY KEY (ns,type,id,timestamp,seq))")))
+            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT GENERATED ALWAYS AS IDENTITY, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id,timestamp,seq))")))
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
@@ -74,7 +74,7 @@
   
   (set-metric [this metric-ns metric-type metric-id metric raw]
     (let [old-raw-value (get-in @memory [metric-ns metric-type metric-id :raw])
-          new-json-metric (json/generate-string metric)
+          new-json-metric (json/generate-smile metric)
           new-metric-timestamp (metric :timestamp)
           sampling-threshold (or 
                                (sampling metric-ns) 
@@ -169,7 +169,7 @@
              :median
              (median total #(when (.absolute rs %1) (.getDouble rs 1)))
              :percentiles
-             (percentiles total (aggregators :percentiles) #(when (.absolute rs %1) (to-json (.getString rs 2))))
+             (percentiles total (aggregators :percentiles) #(when (.absolute rs %1) (to-json (.getBytes rs 2))))
              })))))
   
   (list-types [this metric-ns]
