@@ -1,14 +1,14 @@
 (ns nimrod.core.stat
  (:require [nimrod.core.util :as util]))
 
-(defn average [samples previous-average value]
+(defn mean [samples previous-mean value]
   (if (> samples 0)
-    (util/unrationalize (+ previous-average (/ (- value previous-average) samples)))
+    (util/unrationalize (+ previous-mean (/ (- value previous-mean) samples)))
     0))
 
-(defn variance [samples previous-variance previous-average current-average value]
+(defn variance [samples previous-variance previous-mean current-mean value]
   (if (> samples 1)
-    (util/unrationalize (/ (+ previous-variance (* (- value previous-average) (- value current-average))) (dec samples)))
+    (util/unrationalize (/ (+ previous-variance (* (- value previous-mean) (- value current-mean))) (dec samples)))
     0))
 
 (defn median [total read-fn]
