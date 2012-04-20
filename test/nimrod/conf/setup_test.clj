@@ -19,4 +19,4 @@
         (setup "nimrod2.conf")
         (is (= "nimrod-data/db" @path))
         (is (= {"cache.entries" 1 "cache.results" 2 "defrag.limit" 3} @options))
-        (is (= {"test" 10} @sampling)))))
+        (is (= {"test.frequency" 10} @sampling)))))

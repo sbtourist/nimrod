@@ -18,15 +18,16 @@
 (defonce default-cache-entries 1000)
 (defonce default-cache-results 1000000)
 (defonce default-defrag-limit 0)
-(defonce default-sampling-threshold 1)
+(defonce default-sampling-factor 10)
+(defonce default-sampling-frequency 0)
 
 (defonce default-age oneMinute)
 
 (defn- to-json [v]
   (json/parse-smile v true (fn [_] #{})))
 
-(defn- sample? [old-value new-value threshold]
-  (not (= (int (/ old-value threshold)) (int (/ new-value threshold)))))
+(defn- do-sampling? [samples sampling-frequency]
+  (and (not (zero? sampling-frequency)) (= samples sampling-frequency)))
 
 (defprotocol Store
   (init [this])
@@ -54,9 +55,11 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id))")
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id))")
           (sql/do-prepared 
-            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT GENERATED ALWAYS AS IDENTITY, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id,timestamp,seq))")))
+            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id,seq))")
+          (sql/do-prepared 
+            "CREATE INDEX history_idx ON history (ns,type,id,timestamp)")))
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
@@ -69,31 +72,60 @@
           ["SELECT * FROM metrics"] 
           (doseq [metric all-metrics] 
             (dosync 
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :raw] (metric :raw))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json (metric :metric)))))))))
+              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
+              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json (metric :metric)))
+              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
   
   (set-metric [this metric-ns metric-type metric-id metric raw]
-    (let [old-raw-value (get-in @memory [metric-ns metric-type metric-id :raw])
+    (let [current-seq-value (or (get-in @memory [metric-ns metric-type metric-id :seq]) 0)
+          current-samples (or (get-in @memory [metric-ns metric-type metric-id :samples]) 0)
+          new-seq-value (inc current-seq-value)
+          new-samples (inc current-samples)
+          new-raw-value raw
           new-json-metric (json/generate-smile metric)
           new-metric-timestamp (metric :timestamp)
-          sampling-threshold (or 
-                               (sampling metric-ns) 
-                               (sampling (str metric-ns "." metric-type))
-                               (sampling (str metric-ns "." metric-type "." metric-id))
-                               default-sampling-threshold)]
+          sampling-factor (or 
+                            (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
+                            (sampling (str metric-ns "." metric-type ".factor"))
+                            (sampling (str metric-ns ".factor")) 
+                            default-sampling-factor)
+          sampling-frequency (or 
+                               (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
+                               (sampling (str metric-ns "." metric-type ".frequency"))
+                               (sampling (str metric-ns ".frequency"))
+                               default-sampling-frequency)]
+      ; Increment sequence prior to actually using it to avoid duplicated entries:
+      (dosync
+        (alter memory assoc-in [metric-ns metric-type metric-id :seq] new-seq-value))
+      ; Insert metric/history:
       (sql/with-connection connection-factory 
         (sql/transaction 
           (sql/update-or-insert-values 
             "metrics"
             ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
-            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "raw" raw "metric" new-json-metric})
-          (when (or (nil? old-raw-value) (sample? old-raw-value raw sampling-threshold))
-            (sql/insert-record
-              "history"
-              {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "raw" raw "metric" new-json-metric}))))
+            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "raw" new-raw-value "metric" new-json-metric})
+          (sql/insert-record
+            "history"
+            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "raw" new-raw-value "metric" new-json-metric})))
       (dosync
-        (alter memory assoc-in [metric-ns metric-type metric-id :raw] raw)
-        (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))))
+        (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))
+      ; Optionally sample:
+      (sql/with-connection connection-factory 
+        (sql/transaction     
+          (if (do-sampling? new-samples sampling-frequency)
+            (do 
+              (loop [record new-seq-value samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
+                (if ( <= (int (* samples (rand))) to-delete)
+                  (do
+                    (sql/delete-rows "history" 
+                      ["ns=? AND type=? AND id=? AND seq=?"
+                       metric-ns metric-type metric-id record])
+                    (when (> (dec to-delete) 0) (recur (dec record) (dec samples) (dec to-delete))))
+                  (recur (dec record) (dec samples) to-delete)))
+              (dosync
+                (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
+            (dosync
+              (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))))
   
   (remove-metric [this metric-ns metric-type metric-id]
     (sql/with-connection connection-factory 
