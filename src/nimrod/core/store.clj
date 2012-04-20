@@ -223,7 +223,7 @@
                  (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
                  (.setJdbcUrl (str 
                                 "jdbc:hsqldb:file:" path ";"
-                                "shutdown=true;hsqldb.applog=1;hsqldb.log_size=10;hsqldb.cache_file_scale=128;"
+                                "shutdown=true;hsqldb.applog=1;hsqldb.log_size=50;hsqldb.cache_file_scale=128;"
                                 "hsqldb.defrag_limit=" defrag-limit ";" 
                                 "hsqldb.cache_rows=" cache-entries ";" 
                                 "hsqldb.cache_size=" cache-entries))
