@@ -153,7 +153,7 @@
   
   (read-history [this metric-ns metric-type metric-id tags age from to]
     (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
-          actual-to (or to Long/MAX_VALUE)]
+          actual-to (or to (System/currentTimeMillis))]
       (sql/with-connection connection-factory 
         (sql/transaction 
           (sql/with-query-results 
@@ -162,7 +162,10 @@
              metric-ns metric-type metric-id actual-from actual-to]
             (when (seq r) 
               (let [metrics (into [] (for [metric (map #(to-json-map (%1 :metric)) r) :when (cset/subset? tags (metric :tags))] metric))]
-                {:time {:from actual-from :to actual-to} :size (count metrics) :values metrics})))))))
+                {:time 
+                 {:from (date-to-string actual-from) :to (date-to-string actual-to)} 
+                 :count (count metrics) 
+                 :values metrics})))))))
   
   (remove-history [this metric-ns metric-type metric-id age from to]
     (let [actual-from (or from 0) 
@@ -187,7 +190,7 @@
       (sql/transaction 
         (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
         (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
-              actual-to (or to Long/MAX_VALUE)
+              actual-to (or to (System/currentTimeMillis))
               total (sql/with-query-results total-results
                       ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to]
                       ((first total-results) :total))
@@ -196,10 +199,10 @@
                       (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " ORDER BY aggregation ASC") 
                       :concurrency :read-only :result-type :scroll-insensitive :fetch-size 1)
               rs (.executeQuery query)]
-          (if (.first rs)
+          (when (.first rs)
             {:time 
-             {:from actual-from :to actual-to}
-             :size 
+             {:from (date-to-string actual-from) :to (date-to-string actual-to)}
+             :count 
              total
              :median
              (median total #(when (.absolute rs %1) (.getDouble rs 2)))

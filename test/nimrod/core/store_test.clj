@@ -50,11 +50,11 @@
     (set-metric store metric-ns metric-type metric-id metric-1 1)
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
-    (Thread/sleep 500)
+    (Thread/sleep 1000)
     (testing "Current metric value"
       (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
-      (let [history (read-history store metric-ns metric-type metric-id #{} 1000 nil nil)]
+      (let [history (read-history store metric-ns metric-type metric-id #{} 2000 nil nil)]
         (is (= [metric-3] (history :values)))))))
 
 (defn set-and-read-metric-history-by-tags [store]
@@ -146,7 +146,7 @@
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id Long/MAX_VALUE nil nil {:percentiles [50]})]
-        (is (= 3 (aggregate :size)))
+        (is (= 3 (aggregate :count)))
         (is (= 2.0 (aggregate :median)))
         (is (= {:50th metric-2} (aggregate :percentiles)))))))
 
@@ -160,7 +160,7 @@
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id nil 1 2 {:percentiles [50]})]
-        (is (= 2 (aggregate :size)))
+        (is (= 2 (aggregate :count)))
         (is (= 1.5 (aggregate :median)))
         (is (= {:50th metric-2} (aggregate :percentiles)))))))
 
@@ -174,7 +174,7 @@
     (set-metric store metric-ns metric-type metric-id metric-3 3)
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id 1000 nil nil {:percentiles [50]})]
-        (is (= 1 (aggregate :size)))
+        (is (= 1 (aggregate :count)))
         (is (= 3.0 (aggregate :median)))
         (is (= {:50th metric-3} (aggregate :percentiles)))))))
 
