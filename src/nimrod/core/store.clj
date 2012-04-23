@@ -23,7 +23,10 @@
 
 (defonce default-age oneMinute)
 
-(defn- to-json [v]
+(defn- from-json-map [m]
+  (json/generate-smile m))
+
+(defn- to-json-map [v]
   (json/parse-smile v true (fn [_] #{})))
 
 (defn- do-sampling? [samples sampling-frequency]
@@ -32,7 +35,7 @@
 (defprotocol Store
   (init [this])
   
-  (set-metric [this metric-ns metric-type metric-id metric raw])
+  (set-metric [this metric-ns metric-type metric-id metric aggregation])
   (remove-metric [this metric-ns metric-type metric-id])
   (read-metric [this metric-ns metric-type metric-id])
   
@@ -55,9 +58,9 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id))")
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id))")
           (sql/do-prepared 
-            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, raw DOUBLE, metric LONGVARBINARY, PRIMARY KEY (ns,type,id,seq))")
+            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id,seq))")
           (sql/do-prepared 
             "CREATE INDEX history_idx ON history (ns,type,id,timestamp)")))
       (catch Exception ex))
@@ -73,16 +76,16 @@
           (doseq [metric all-metrics] 
             (dosync 
               (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json (metric :metric)))
+              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (metric :metric)))
               (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
   
-  (set-metric [this metric-ns metric-type metric-id metric raw]
+  (set-metric [this metric-ns metric-type metric-id metric aggregation]
     (let [current-seq-value (or (get-in @memory [metric-ns metric-type metric-id :seq]) 0)
           current-samples (or (get-in @memory [metric-ns metric-type metric-id :samples]) 0)
           new-seq-value (inc current-seq-value)
           new-samples (inc current-samples)
-          new-raw-value raw
-          new-json-metric (json/generate-smile metric)
+          new-aggregation-value aggregation
+          new-json-metric (from-json-map metric)
           new-metric-timestamp (metric :timestamp)
           sampling-factor (or 
                             (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
@@ -103,10 +106,10 @@
           (sql/update-or-insert-values 
             "metrics"
             ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
-            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "raw" new-raw-value "metric" new-json-metric})
+            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})
           (sql/insert-record
             "history"
-            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "raw" new-raw-value "metric" new-json-metric})))
+            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})))
       (dosync
         (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))
       ; Optionally sample:
@@ -158,7 +161,7 @@
             ["SELECT metric FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp DESC" 
              metric-ns metric-type metric-id actual-from actual-to]
             (when (seq r) 
-              (let [metrics (into [] (for [metric (map #(to-json (%1 :metric)) r) :when (cset/subset? tags (metric :tags))] metric))]
+              (let [metrics (into [] (for [metric (map #(to-json-map (%1 :metric)) r) :when (cset/subset? tags (metric :tags))] metric))]
                 {:time {:from actual-from :to actual-to} :size (count metrics) :values metrics})))))))
   
   (remove-history [this metric-ns metric-type metric-id age from to]
@@ -190,7 +193,7 @@
                       ((first total-results) :total))
               query (sql/prepare-statement 
                       (sql/connection) 
-                      (str "SELECT raw, metric FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " ORDER BY raw ASC") 
+                      (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " ORDER BY aggregation ASC") 
                       :concurrency :read-only :result-type :scroll-insensitive :fetch-size 1)
               rs (.executeQuery query)]
           (if (.first rs)
@@ -199,9 +202,9 @@
              :size 
              total
              :median
-             (median total #(when (.absolute rs %1) (.getDouble rs 1)))
+             (median total #(when (.absolute rs %1) (.getDouble rs 2)))
              :percentiles
-             (percentiles total (aggregators :percentiles) #(when (.absolute rs %1) (to-json (.getBytes rs 2))))
+             (percentiles total (aggregators :percentiles) #(when (.absolute rs %1) (to-json-map (.getBytes rs 1))))
              })))))
   
   (list-types [this metric-ns]

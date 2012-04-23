@@ -9,13 +9,13 @@
 
 (defprotocol MetricType
   (name-of [this])
-  (raw-value-of [this metric])
+  (aggregation-value-of [this metric])
   (compute [this id timestamp current-value new-value tags]))
 
 (deftype Alert []
   MetricType
   (name-of [this] "nimrod.core.metric.Alert")
-  (raw-value-of [this metric] (metric :timestamp))
+  (aggregation-value-of [this metric] (metric :timestamp))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) alert new-value]
       (if-let [current current-value]
@@ -33,7 +33,7 @@
 (deftype Gauge []
   MetricType
   (name-of [this] "nimrod.core.metric.Gauge")
-  (raw-value-of [this metric] (metric :gauge))
+  (aggregation-value-of [this metric] (metric :gauge))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong new-value)]
       (if-let [current current-value]
@@ -60,7 +60,7 @@
 (deftype Counter []
   MetricType
   (name-of [this] "nimrod.core.metric.Counter")
-  (raw-value-of [this metric] (metric :counter))
+  (aggregation-value-of [this metric] (metric :counter))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) increment (Long/parseLong new-value)]
       (if-let [current current-value]
@@ -90,7 +90,7 @@
 (deftype Timer []
   MetricType
   (name-of [this] "nimrod.core.metric.Timer")
-  (raw-value-of [this metric] (metric :elapsed-time))
+  (aggregation-value-of [this metric] (metric :elapsed-time))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) timer new-time action new-value]
       (if-let [current current-value]
@@ -139,5 +139,5 @@
   (let [current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
         new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
     (try 
-      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (raw-value-of type new-metric)) 
+      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (aggregation-value-of type new-metric)) 
       (catch Exception ex (log/error (.getMessage ex) ex)))))
