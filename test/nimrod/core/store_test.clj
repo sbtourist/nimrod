@@ -76,32 +76,38 @@
         metric-1-1 {:value 1 :timestamp 1}
         metric-1-2 {:value 2 :timestamp 2}
         metric-1-3 {:value 3 :timestamp 3}
+        metric-1-4 {:value 4 :timestamp 4}
         metric-ns-2 "2" metric-type-2 "gauge" metric-id-2 "test" 
         metric-2-1 {:value 1 :timestamp 1}
         metric-2-2 {:value 2 :timestamp 2}
         metric-2-3 {:value 3 :timestamp 3}
+        metric-2-4 {:value 4 :timestamp 4}
         metric-ns-3 "3" metric-type-3 "gauge" metric-id-3 "test" 
         metric-3-1 {:value 1 :timestamp 1}
         metric-3-2 {:value 2 :timestamp 2}
-        metric-3-3 {:value 3 :timestamp 3}]
+        metric-3-3 {:value 3 :timestamp 3}
+        metric-3-4 {:value 4 :timestamp 4}]
     (set-metric store metric-ns-1 metric-type-1 metric-id-1 metric-1-1 1)
     (set-metric store metric-ns-1 metric-type-1 metric-id-1 metric-1-2 2)
     (set-metric store metric-ns-1 metric-type-1 metric-id-1 metric-1-3 3)
+    (set-metric store metric-ns-1 metric-type-1 metric-id-1 metric-1-4 4)
     (set-metric store metric-ns-2 metric-type-2 metric-id-2 metric-2-1 1)
     (set-metric store metric-ns-2 metric-type-2 metric-id-2 metric-2-2 2)
     (set-metric store metric-ns-2 metric-type-2 metric-id-2 metric-2-3 3)
+    (set-metric store metric-ns-2 metric-type-2 metric-id-2 metric-2-4 4)
     (set-metric store metric-ns-3 metric-type-3 metric-id-3 metric-3-1 1)
     (set-metric store metric-ns-3 metric-type-3 metric-id-3 metric-3-2 2)
     (set-metric store metric-ns-3 metric-type-3 metric-id-3 metric-3-3 3)
+    (set-metric store metric-ns-3 metric-type-3 metric-id-3 metric-3-4 4)
     (testing "Metric history values with sampling configured on metrics namespace"
       (let [history (read-history store metric-ns-1 metric-type-1 metric-id-1 #{} nil 0 Long/MAX_VALUE)]
-        (is (= 2 (count (history :values))))))
+        (is (= 3 (count (history :values))))))
     (testing "Metric history values with sampling configured on metrics namespace and type"
       (let [history (read-history store metric-ns-2 metric-type-2 metric-id-2 #{} nil 0 Long/MAX_VALUE)]
-        (is (= 2 (count (history :values))))))
+        (is (= 3 (count (history :values))))))
     (testing "Metric history values with sampling configured on metrics namespace, type and id"
       (let [history (read-history store metric-ns-3 metric-type-3 metric-id-3 #{} nil 0 Long/MAX_VALUE)]
-        (is (= 2 (count (history :values))))))))
+        (is (= 3 (count (history :values))))))))
 
 (defn set-and-remove-metric-history [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 

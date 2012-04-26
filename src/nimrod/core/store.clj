@@ -119,8 +119,8 @@
         (do 
           (sql/with-connection connection-factory 
             (sql/transaction 
-              (loop [record new-seq-value samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
-                (if ( <= (int (* samples (rand))) to-delete)
+              (loop [record (- new-seq-value new-samples) samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
+                (if (<= (int (* samples (rand))) to-delete)
                   (do
                     (sql/delete-rows "history" 
                       ["ns=? AND type=? AND id=? AND seq=?"
