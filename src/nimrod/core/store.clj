@@ -58,18 +58,20 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id))")
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id))")
           (sql/do-prepared 
-            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, seq BIGINT, timestamp BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id,seq))")
+            "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id,timestamp,seq))")
           (sql/do-prepared 
-            "CREATE INDEX history_idx ON history (ns,type,id,timestamp)")))
+            "CREATE INDEX history_seq_idx ON history (ns,type,id,seq)")))
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
       (sql/transaction 
         (sql/do-prepared (str "SET DATABASE DEFAULT RESULT MEMORY ROWS " (or (options "cache.results") default-cache-results))))
-      (sql/transaction 
+      (sql/transaction
+        (sql/do-prepared "SET TABLE history CLUSTERED ON (ns,type,id,timestamp)"))
+      (sql/transaction
         (sql/with-query-results 
           all-metrics
           ["SELECT * FROM metrics"] 
@@ -113,10 +115,10 @@
       (dosync
         (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))
       ; Optionally sample:
-      (sql/with-connection connection-factory 
-        (sql/transaction     
-          (if (do-sampling? new-samples sampling-frequency)
-            (do 
+      (if (do-sampling? new-samples sampling-frequency)
+        (do 
+          (sql/with-connection connection-factory 
+            (sql/transaction 
               (loop [record new-seq-value samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
                 (if ( <= (int (* samples (rand))) to-delete)
                   (do
@@ -124,11 +126,11 @@
                       ["ns=? AND type=? AND id=? AND seq=?"
                        metric-ns metric-type metric-id record])
                     (when (> (dec to-delete) 0) (recur (dec record) (dec samples) (dec to-delete))))
-                  (recur (dec record) (dec samples) to-delete)))
-              (dosync
-                (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
-            (dosync
-              (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))))
+                  (recur (dec record) (dec samples) to-delete)))))
+          (dosync
+            (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
+        (dosync
+          (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))
   
   (remove-metric [this metric-ns metric-type metric-id]
     (sql/with-connection connection-factory 
@@ -229,7 +231,7 @@
                  (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
                  (.setJdbcUrl (str 
                                 "jdbc:hsqldb:file:" path ";"
-                                "shutdown=true;hsqldb.applog=1;hsqldb.log_size=50;hsqldb.cache_file_scale=128;"
+                                "shutdown=true;hsqldb.applog=2;hsqldb.log_size=50;hsqldb.cache_file_scale=128;"
                                 "hsqldb.defrag_limit=" defrag-limit ";" 
                                 "hsqldb.cache_rows=" cache-entries ";" 
                                 "hsqldb.cache_size=" cache-entries))
