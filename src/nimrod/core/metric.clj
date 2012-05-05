@@ -9,12 +9,13 @@
 
 (defprotocol MetricType
   (name-of [this])
-  (compute [this id timestamp current-value new-value tags])
-  (primary [this metric]))
+  (aggregation-value-of [this metric])
+  (compute [this id timestamp current-value new-value tags]))
 
 (deftype Alert []
   MetricType
   (name-of [this] "nimrod.core.metric.Alert")
+  (aggregation-value-of [this metric] (metric :timestamp))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) alert new-value]
       (if-let [current current-value]
@@ -27,24 +28,24 @@
          :timestamp new-time
          :samples 1
          :alert alert
-         :tags tags})))
-  (primary [this metric] (metric :timestamp)))
+         :tags tags}))))
 
 (deftype Gauge []
   MetricType
   (name-of [this] "nimrod.core.metric.Gauge")
+  (aggregation-value-of [this metric] (metric :gauge))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong new-value)]
       (if-let [current current-value]
         (let [samples (inc (current :samples))
-              previous-gauge-average (current :gauge-average)
+              previous-gauge-mean (current :gauge-mean)
               previous-gauge-variance (current :gauge-variance)
-              gauge-average (average samples previous-gauge-average gauge)
-              gauge-variance (variance samples previous-gauge-variance previous-gauge-average gauge-average gauge)]
+              gauge-mean (mean samples previous-gauge-mean gauge)
+              gauge-variance (variance samples previous-gauge-variance previous-gauge-mean gauge-mean gauge)]
           (conj current {:timestamp new-time
                          :gauge gauge
                          :samples samples
-                         :gauge-average gauge-average
+                         :gauge-mean gauge-mean
                          :gauge-variance gauge-variance
                          :tags tags
                          }))
@@ -52,27 +53,27 @@
          :timestamp new-time
          :gauge gauge
          :samples 1
-         :gauge-average gauge
+         :gauge-mean gauge
          :gauge-variance 0
-         :tags tags})))
-  (primary [this metric] (metric :gauge)))
+         :tags tags}))))
 
 (deftype Counter []
   MetricType
   (name-of [this] "nimrod.core.metric.Counter")
+  (aggregation-value-of [this metric] (metric :counter))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) increment (Long/parseLong new-value)]
       (if-let [current current-value]
         (let [samples (inc (current :samples))
               previous-counter (current :counter)
-              previous-increment-average (current :increment-average)
+              previous-increment-mean (current :increment-mean)
               previous-increment-variance (current :increment-variance)
-              increment-average (average samples previous-increment-average increment)
-              increment-variance (variance samples previous-increment-variance previous-increment-average increment-average increment)]
+              increment-mean (mean samples previous-increment-mean increment)
+              increment-variance (variance samples previous-increment-variance previous-increment-mean increment-mean increment)]
           (conj current {:timestamp new-time
                          :counter (+ previous-counter increment)
                          :samples samples
-                         :increment-average increment-average
+                         :increment-mean increment-mean
                          :increment-variance increment-variance
                          :latest-increment increment
                          :tags tags
@@ -81,15 +82,15 @@
          :timestamp new-time
          :counter increment
          :samples 1
-         :increment-average increment
+         :increment-mean increment
          :increment-variance 0
          :latest-increment increment
-         :tags tags})))
-  (primary [this metric] (metric :counter)))
+         :tags tags}))))
 
 (deftype Timer []
   MetricType
   (name-of [this] "nimrod.core.metric.Timer")
+  (aggregation-value-of [this metric] (metric :elapsed-time))
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) timer new-time action new-value]
       (if-let [current current-value]
@@ -97,25 +98,24 @@
           (= "start" action)
           (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
           (= "stop" action)
-          (let [previous-elapsed-time-average (current :elapsed-time-average)
+          (let [previous-elapsed-time-mean (current :elapsed-time-mean)
                 previous-elapsed-time-variance (current :elapsed-time-variance)
                 start (current :start)
                 samples (inc (current :samples))
                 elapsed-time (- timer start)
-                elapsed-time-average (average samples previous-elapsed-time-average elapsed-time)
-                elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-average elapsed-time-average elapsed-time)]
+                elapsed-time-mean (mean samples previous-elapsed-time-mean elapsed-time)
+                elapsed-time-variance (variance samples previous-elapsed-time-variance previous-elapsed-time-mean elapsed-time-mean elapsed-time)]
             (conj current {:timestamp new-time
                            :end timer
                            :elapsed-time elapsed-time
-                           :elapsed-time-average elapsed-time-average
+                           :elapsed-time-mean elapsed-time-mean
                            :elapsed-time-variance elapsed-time-variance
                            :samples samples
                            :tags tags}))
           :else (throw (IllegalStateException. (str "Bad timer action: " action))))
         (if (= "start" action)
-          {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-average 0 :elapsed-time-variance 0 :samples 0 :tags tags}
-          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action)))))))
-  (primary [this metric] (metric :elapsed-time)))
+          {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :elapsed-time-mean 0 :elapsed-time-variance 0 :samples 0 :tags tags}
+          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action))))))))
 
 (defn new-alert [] (Alert.))
 
@@ -139,5 +139,5 @@
   (let [current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
         new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
     (try 
-      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (primary type new-metric)) 
+      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (aggregation-value-of type new-metric)) 
       (catch Exception ex (log/error (.getMessage ex) ex)))))

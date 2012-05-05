@@ -14,10 +14,10 @@
 (defn- setup-store [conf]
   (let [store (into {"type" "disk"} (.get conf "store"))
         options (into {} (.get store "options"))
-        type (store "type")]
-    (condp = type
-      "disk" (setup-metric-store (new-disk-store "nimrod-data/db" (into {} (for [kv options] (into {} (map #(vector (str (key kv) "." (key %1)) (val %1)) (val kv)))))))
-      (throw (IllegalStateException. (str "Bad store configuration: " type))))))
+        sampling (into {} (.get store "sampling"))]
+    (condp = (store "type")
+      "disk" (setup-metric-store (new-disk-store "nimrod-data/db" options sampling))
+      (throw (IllegalStateException. (str "Bad store configuration: " (store "type")))))))
 
 (defn setup [source]
   (let [conf (.unwrapped (.root (ConfigFactory/parseFile (io/file source))))]

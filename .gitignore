@@ -10,5 +10,6 @@ test.sh
 nimrod.properties
 /.lein-failures
 /target/
-/nimrod-data/
+/nimrod-data*
 /nimrod.conf
+/.tmp.zipeg.1333558157188866000/
