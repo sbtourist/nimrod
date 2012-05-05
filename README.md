@@ -1,4 +1,4 @@
-# Nimrod
+# Nimrod 0.5 (WORK-IN-PROGRESS)
 
 Nimrod is a metrics server, inspired by the excellent [Coda Hale's Metrics library](https://github.com/codahale/metrics/), but purely based on log processing:
 hence, it doesn't affect the way you write your applications, nor it has any side effect on them.
@@ -10,9 +10,8 @@ In other words, for those of you who love the bullet points:
 
 It currently provides the following features:
 
-* Pre-defined and on-the-fly registration of log files.
 * Continuous logs processing for metrics extraction.
-* Different types of metrics with fundamental statistical information and time-series-like history.
+* Different types of metrics with fundamental statistical information, time-series history, and (optional) random sampling.
 * Web-based, Javascript-friendly JSON-over-HTTP server, with default support for Cross Origin Resource Sharing on GET requests.
 
 # Metrics
@@ -20,12 +19,12 @@ It currently provides the following features:
 ## Logging
 
 Nimrod metrics are printed on log files *by the user application*, while the Nimrod metrics server only listens to log and processes them: so,
-metrics "production" is completely decoupled from metrics processing and storage.
+metrics production is completely decoupled from metrics processing and storage.
 
 Metrics must be printed in a Nimrod-specific format, providing the following information in square brackets:
 
-* The **nimrod** fixed string.
-* The metric **timestamp**, indicating *current unix time in milliseconds* and always *monotonic*.
+* The **nimrod** identification string.
+* The metric **timestamp**, providing *current unix time in milliseconds*.
 * The metric **type**, among one of:
  * *alert*
  * *gauge*
@@ -45,7 +44,7 @@ But you can also interleave whatever you want between Nimrod-specific values, in
 
 And with tags:
 
-    [nimrod][123456789][counter][players][100][game_code:123]
+    [nimrod][123456789][counter][players][100][game_code:123,game_name:poker]
 
 ## Alerts
 
@@ -57,7 +56,7 @@ Here's a log line representing an alert value:
 
 The Nimrod metrics server also computes and provides the following statistical information:
 
-* Average and variance of the elapsed time.
+* Mean and variance of the elapsed time.
 
 ## Gauges
 
@@ -69,8 +68,8 @@ Here's a log line representing a gauge value:
 
 The Nimrod metrics server also computes and provides the following statistical information:
 
-* Average and variance of time intervals between measure updates.
-* Average and variance of the measure.
+* Mean and variance of time intervals between measure updates.
+* Mean and variance of the measure.
 
 ## Counters
 
@@ -82,8 +81,8 @@ Here's a log line representing a counter value:
 
 The Nimrod metrics server also computes and provides the following statistical information:
 
-* Average and variance of time intervals between counter updates.
-* Average and variance of the counter increment.
+* Mean and variance of time intervals between counter updates.
+* Mean and variance of the counter increment.
 
 ## Timers
 
@@ -101,40 +100,87 @@ Elapsed time will be computed over the provided timestamps above (in the example
 
 The Nimrod metrics server also computes and provides the following statistical information:
 
-* Average and variance of the elapsed time.
+* Mean and variance of the elapsed time.
+
+## Time-series history and sampling
+
+For each metric, Nimrod stores all processed values in time-series which you can browse through the Nimrod HTTP interface, or query through external tools 
+for monitoring purposes or further statistical analysis.
+
+By the way, if your application produces lots of metrics, the time-series could grow very large, so Nimrod provides a random sampling method to reduce the 
+size of the time-series history.
+The sampling algorithm is based on two main concepts:
+
+* Sampling frequency: how many metric values are fully stored before sampling takes place.
+* Sampling factor: how much is the full sample reduced. 
+
+Nimrod provides an extra guarantee: at any point in time, the latest N metric values, where N is equal to the sampling frequency, will always be fully kept; 
+this means you can always rely on the latest N metrics to be completely accurate, which is very useful for monitoring purposes, when you usually want the freshest
+data to be more accurate than the older one, in order to accurately detect anomalies.
+
+So to make an example, if you setup a sampling frequency of 10000, and a factor of 10, every time Nimrod collects 10000 metric values the *previous* 10000 
+values will be sampled and reduced to 1000, while the latest ones will be fully kept and sampled at the next round.
 
 # Usage
 
 ## Download/Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.4-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-standalone.jar).
 
 Otherwise, you can check it out from sources and build by yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
-It is as easy as:
+Once you have Leiningen installed, it is as easy as:
 
     $> lein deps && lein uberjar
 
 ## Configuration
 
-Nimrod can be configured by editing a *nimrod.properties* file placed in the same directory you start the Nimrod process.
+Nimrod can be configured by creating and editing a *nimrod.conf* file placed in the same directory where you start the Nimrod process; it is based on the
+[HOCON](https://github.com/typesafehub/config) format.
 
-You can pre-register log files to process and define the metrics storage implementation.
+You can pre-register log files to process and configure the metrics storage implementation.
 
-Logs can be pre-registered at startup by providing the *nimrod.logs* property with a comma-separated list of log identifier, log path and related interval (in milliseconds) 
-separated by colon, as follows:
+Logs can be pre-registered at startup by providing a *logs* block and a nested block for every log, identified by a unique name, as follows:
 
-    nimrod.logs = id1:log1:interval1,id2:log2:interval2, ...
+    logs {
+        log_identifier_1 { 
+            source : log_file_path
+            interval : tailing_interval_in_millis
+            end : true_for_tailing_from_end_false_otherwise
+        }
+        log_identifier_2 { 
+            source : log_file_path
+            interval : tailing_interval_in_millis
+            end : true_for_tailing_from_end_false_otherwise
+        }
+        // ...
+    }
 
-Log identifiers must be unique, otherwise Nimrod will shutdown.
+Storage can be configured by providing the specific implementation, related options and sampling method, as follows:
 
-Metrics storage implementation can be configured to be either in-memory (volatile) or on-disk (persistent), 
-by providing the *nimrod.store* property with a value of either _memory_ or _disk_:
+    store {
+        type : disk
+        options {
+            "cache.results" : number_of_metric_values_cached_during_queries
+            "defrag.limit" : percentage_of_wasted_space_after_which_defrag_is_executed
+        }
+        sampling {
+            "metric.frequency" : sampling_frequency
+            "metric.factor" : sampling_factor
+        }
+    }
 
-    nimrod.store = memory|disk.
+Here is a more in-depth explanation: 
 
-In case of persistent storage, metrics identifiers should be kept consistent between restarts: they should be configured to always refer to the same
-"logical" file, that is, the file path could change but it should always refer to the same application and/or same set of metrics.
+* type: currently, only the *disk* implementation is supported (the old *memory* implementation isn't supported anymore).
+* "cache.results" (quoting is mandatory): how many metric values are cached in memory by a single query to the time-series history; if the query exceeds that value, the results 
+will be moved to disk and the query will be slower.
+* "defrag.limit" (quoting is mandatory): percentage of wasted disk space after which defrag is executed.
+* "metric.frequency" (quoting is mandatory): sampling frequency for metrics; you can define a sampling frequency for all metrics from a log file
+by only specifying the log identifier (i.e. log1), or for all metrics of a given type from a log file by specifying the log identifier followed by a dot 
+and the metric type (i.e. log1.gauge), or for a specific named metric of a given type from a log file by specifying the log identifier followed by a dot 
+and the metric type followed by a dot and the metric name (i.e. log1.gauge.requests).
+* "metric.factor" (quoting is mandatory): sampling factor for metrics, defined in the same way as frequency.
 
 ## Startup
 
@@ -146,124 +192,78 @@ This will start the Nimrod web server and log processing activity.
 
 Please note that Nimrod must be started on the same computer hosting the logs to listen to and process.
 
-## Log files management
+## Log files querying and management
 
-You can dynamically register the logs you want to listen to and process, by issuing the following request:
-
-    POST /logs/log_id/start?file=log_file&interval=listen_interval
-
-You have to provide the unique log identifier (*log_id*), the path of the log file (*log_file*), and the milliseconds interval among subsequent log reads (*listen_interval*).
-
-You can query for registered logs too:
+You can query for registered logs as follows:
 
     GET /logs
 
-And finally stop listening/processing logs:
+And you can also stop listening/processing a log that was previously configured:
 
     POST /logs/log_id/stop
 
-Where *log_id* is the log identifier.
+## Metrics querying and management
 
-## Metrics management
-
-Nimrod metric types for a given log, based on actual metrics, can be queried with the following request:
+You can query all active metric types for a given log as follows:
 
     GET /logs/log_id
 
-Nimrod metrics for a given log and metric type can be queried with the following request:
+Once you have the metric type, you can query all actual metrics under that log and type as follows:
 
     GET /logs/log_id/metric_type
 
-Here, *log_id* is the log identifier and *metric_type* is the name of the metric type in plural form, that is either:
-*alerts*, *gauges*, *counters* or *timers*.
-
-Once you have a grasp of available Nimrod metrics by logs and types, a given, specific, Nimrod metric can be queried by issuing the following request:
+Once you have a grasp of available Nimrod metrics by logs and types, specific Nimrod metrics can be queried as follows:
 
     GET /logs/log_id/metric_type/metric_id
 
-Where *metric_id* is the name of the specific metric you want to read.
+Here, *metric_id* is the name of the specific metric you want to read.
 
-You will always get the latest metric value, but you can also access the metric history as follows:
+You will always get the latest metric value, but you can also access its time-series history as follows:
 
     GET /logs/log_id/metric_type/metric_id/history
 
-Nimrod provides indeed rich APIs for history management.
+Nimrod provides some rich APIs for querying and managing the time-series history.
 
-You can browse through the history by age and tags, providing the max age and/or comma separated list of tags to match:
+You can browse through the history by age:
 
-    GET /logs/log_id/metric_type/metric_id/history?age=max_age&tags=tags_list
+    GET /logs/log_id/metric_type/metric_id/history?age=max_age_in_millis
 
-History is limited by default at 1000 values, but you can change it by specifying the *limit* query parameter:
+Or time interval:
 
-    GET /logs/log_id/metric_type/metric_id/history?age=max_age&tags=tags_list&limit=max_metrics
+    GET /logs/log_id/metric_type/metric_id/history?from=unix_time_in_millis&to=unix_time_in_millis
+
+And also use tags for filtering the results:
+
+    GET /logs/log_id/metric_type/metric_id/history?tags=comma_separated_list_of_tags
+
+Tags filtering can be used with both age and interval based queries.
 
 History can be "pruned" by deleting values whose latest update happened before a given number of milliseconds:
 
-    POST /logs/log_id/metric_type/metric_id/history/delete?age=milliseconds
+    POST /logs/log_id/metric_type/metric_id/history/delete?age=millis
 
-The same operation can be applied to the history of all metrics belonging to a given type:
+Or by specifying a time interval:
 
-    POST /logs/log_id/metric_type/history/delete?age=milliseconds
+    POST /logs/log_id/metric_type/metric_id/history/delete?from=unix_time_in_millis&to=unix_time_in_millis
 
-And, all histories of all metrics belonging to a given type can be merged together by tags, specifying also age and limit:
+History can also be aggregated, providing the following summary statistics: count, median and percentiles. 
+Aggregation happen by again specifying the max age:
 
-    POST /logs/log_id/metric_type/history/merge?tags=tags_list&age=max_age&limit=max_metrics
+    GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_age_in_millis
 
-This is very useful when you have somewhat similar or correlated metrics, and you need to group them for easier visualization and/or processing; please note that
-this is just a way to group them, and doesn't affect statistical computations such as average or variance.
+Or time interval:
 
-Finally, uninteresting metrics can be completely deleted as follows:
+    GET /logs/log_id/metric_type/metric_id/history/aggregate?from=unix_time_in_millis&to=unix_time_in_millis
 
-    DELETE /logs/log_id/metric_type/metric_id
+Percentile ranks can also be specified as follows:
 
-# Languages support
+    GET /logs/log_id/metric_type/metric_id/history?percentiles=comma_separated_list_of_ranks
 
-The _nimrod.java.utils.NimrodLogger_ class provides an easy way to print Nimrod logs from JVM languages.
+Finally, metrics can be reset as follows:
 
-First, you have to select the metric you want to log through one of the following static methods:
+    POST /logs/log_id/metric_type/metric_id/reset
 
-* NimrodLogger#forAlert(String name)
-* NimrodLogger#forCounter(String name)
-* NimrodLogger#forGauge(String name)
-* NimrodLogger#forTimer(String name)
-
-The _name_ argument should uniquely identify the metric among its type, and will be part of the full metric name composed as follows: _type.name_.
-For example, the following method call (in Java) will produce a metric named _alert.failure_:
-
-    NimrodLogger.forAlert("failure");
-
-Then, you have to actually log the metric value through one of the following instance methods representing well-known log levels:
-
-* NimrodLogger#debug(String value)
-* NimrodLogger#debug(String value, String... tags)
-* NimrodLogger#info(String value)
-* NimrodLogger#info(String value, String... tags)
-* NimrodLogger#warn(String value)
-* NimrodLogger#warn(String value, String... tags)
-* NimrodLogger#error(String value)
-* NimrodLogger#error(String value, String... tags)
-
-You can either log the metric value only, or an array of tags too.
-For example, the following method call (in Java):
-
-    NimrodLogger.forGauge("requests").info("100", "service:acme");
-
-Will actually produce the following Nimrod log:
-
-    [nimrod][123456789][gauge][requests][100][service:acme]
-
-Please note that the timestamp value is automatically added based on the current time of logging.
-
-Finally, NimrodLogger provides a few static helper methods:
-
-* NimrodLogger#prefixWith(String prefix, String name): will prefix the metric name with the given prefix value.
-* NimrodLogger#suffixWith(String name), String suffix: will suffix the metric name with the given suffix value.
-* NimrodLogger#prefixWithThreadId(String name): will prefix the metric name with the hash code of the current thread.
-* NimrodLogger#suffixWithThreadId(String name): will suffix the metric name with the hash code of the current thread.
-* NimrodLogger#start(): will log the "start" metric value for timers.
-* NimrodLogger#stop(): will log the "stop" metric value for timers.
-
-NimrodLogger is based on [SLF4J](http://www.slf4j.org/), which provides bridges toward the most well known logging libraries.
+Please note that this only resets the latest value, without affecting its history.
 
 # Feedback
 
@@ -271,6 +271,6 @@ For everything Nimrod-related, join the nimrod-user group: http://groups.google.
 
 # License
 
-Copyright (C) 2011 [Sergio Bossa](http://twitter.com/sbtourist)
+Copyright (C) 2011-2012 [Sergio Bossa](http://twitter.com/sbtourist)
 
 Distributed under the [Apache Software License](http://www.apache.org/licenses/LICENSE-2.0.html).
