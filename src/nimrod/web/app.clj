@@ -72,9 +72,6 @@
 
 (http/defroutes nimrod-routes
   
-  (http/POST ["/logs/:log-id/start" :log-id #"[^/?#]+"] [log-id file interval]
-    (let [tailer (start-tailer log-id file (Long/parseLong (or interval "1000")))]
-      (std-response :ok {tailer file})))
   (http/GET "/logs" []
     (cors-response :ok (list-tailers)))
   (http/GET "/logs/" [:as request]
@@ -102,7 +99,7 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/DELETE ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/reset" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
     (if-let [metric-type (type-of metric-type)]
       (do 
         (remove-metric @metrics-store log-id metric-type metric-id)
