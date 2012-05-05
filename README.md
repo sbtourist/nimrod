@@ -1,7 +1,7 @@
 # Nimrod 0.5 (WORK-IN-PROGRESS)
 
 Nimrod is a metrics server, inspired by the excellent [Coda Hale's Metrics library](https://github.com/codahale/metrics/), but purely based on log processing:
-hence, it doesn't affect the way you write your applications, nor it has any side effect on them.
+hence, it doesn't affect the way you write your applications, nor has it any side effect on them.
 In other words, for those of you who love the bullet points:
 
 * You don't have to import any libraries: just print some logs in a way that Nimrod is able to process, and run the Nimrod metrics server to process them.
@@ -32,7 +32,7 @@ Metrics must be printed in a Nimrod-specific format, providing the following inf
  * *timer*
 * The metric **identifier** for the specified type.
 * The metric **value**.
-* An optional comma-separated list of metric **tags**, defining custom information.
+* An optional comma-separated list of metric **tags** defining custom information.
 
 Here's an example, without tags:
 
@@ -127,7 +127,7 @@ values will be sampled and reduced to 1000, while the latest ones will be fully 
 
 You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-standalone.jar).
 
-Otherwise, you can check it out from sources and build by yourself:
+Otherwise, you can check it out and build from source yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
 Once you have Leiningen installed, it is as easy as:
 
@@ -180,7 +180,7 @@ will be moved to disk and the query will be slower.
 by only specifying the log identifier (i.e. log1), or for all metrics of a given type from a log file by specifying the log identifier followed by a dot 
 and the metric type (i.e. log1.gauge), or for a specific named metric of a given type from a log file by specifying the log identifier followed by a dot 
 and the metric type followed by a dot and the metric name (i.e. log1.gauge.requests).
-* "metric.factor" (quoting is mandatory): sampling factor for metrics, defined in the same way as frequency.
+* "metric.factor" (quoting is mandatory): sampling factor for metrics, defined in the same way as metric.frequency.
 
 ## Startup
 
@@ -190,7 +190,7 @@ The Nimrod metrics server can be easily started as follows (replace "version" wi
 
 This will start the Nimrod web server and log processing activity.
 
-Please note that Nimrod must be started on the same computer hosting the logs to listen to and process.
+Please note that Nimrod must be started on the same machine hosting the logs, in order to listen to and process them.
 
 ## Log files querying and management
 
@@ -208,7 +208,7 @@ You can query all active metric types for a given log as follows:
 
     GET /logs/log_id
 
-Once you have the metric type, you can query all actual metrics under that log and type as follows:
+Once you have the metric type, you can query all actual metrics under that log and metric type, as follows:
 
     GET /logs/log_id/metric_type
 
@@ -222,7 +222,7 @@ You will always get the latest metric value, but you can also access its time-se
 
     GET /logs/log_id/metric_type/metric_id/history
 
-Nimrod provides some rich APIs for querying and managing the time-series history.
+Nimrod also provides a selection of rich APIs for querying and managing the time-series history.
 
 You can browse through the history by age:
 
@@ -247,7 +247,7 @@ Or by specifying a time interval:
     POST /logs/log_id/metric_type/metric_id/history/delete?from=unix_time_in_millis&to=unix_time_in_millis
 
 History can also be aggregated, providing the following summary statistics: count, median and percentiles. 
-Aggregation happen by again specifying the max age:
+Aggregation happens by again specifying the max age:
 
     GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_age_in_millis
 
@@ -255,9 +255,9 @@ Or time interval:
 
     GET /logs/log_id/metric_type/metric_id/history/aggregate?from=unix_time_in_millis&to=unix_time_in_millis
 
-Desired percentiles can also be specified as follows:
+Percentile ranks can also be specified as follows:
 
-    GET /logs/log_id/metric_type/metric_id/history/aggregate?percentiles=comma_separated_list_of_percentages_ie_25,50,99
+    GET /logs/log_id/metric_type/metric_id/history?percentiles=comma_separated_list_of_ranks
 
 Finally, metrics can be reset as follows:
 
