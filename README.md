@@ -255,9 +255,9 @@ Or time interval:
 
     GET /logs/log_id/metric_type/metric_id/history/aggregate?from=unix_time_in_millis&to=unix_time_in_millis
 
-Percentile ranks can also be specified as follows:
+Desired percentiles can also be specified as follows:
 
-    GET /logs/log_id/metric_type/metric_id/history?percentiles=comma_separated_list_of_ranks
+    GET /logs/log_id/metric_type/metric_id/history/aggregate?percentiles=comma_separated_list_of_percentages_ie_25,50,99
 
 Finally, metrics can be reset as follows:
 
