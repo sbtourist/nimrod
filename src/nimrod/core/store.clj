@@ -1,7 +1,6 @@
 (ns nimrod.core.store
  (:require
    [cheshire.core :as json]
-   [clojure.java.jdbc.internal :as jdbc]
    [clojure.java.jdbc :as sql]
    [clojure.set :as cset]
    [clojure.tools.logging :as log])

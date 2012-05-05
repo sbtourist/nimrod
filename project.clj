@@ -1,8 +1,8 @@
 (defproject nimrod "0.5-SNAPSHOT"
  :description "Not Invasive MetRics, Oh Dear!"
  :dependencies [
-                [org.clojure/clojure "1.3.0"]
-                [org.clojure/java.jdbc "0.1.4"]
+                [org.clojure/clojure "1.4.0"]
+                [org.clojure/java.jdbc "0.2.0"]
                 [org.clojure/tools.logging "0.2.0"]
                 [cheshire "4.0.0"]
                 [compojure "1.0.0"]
