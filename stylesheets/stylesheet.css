@@ -331,6 +331,14 @@ Full-Width Styles
   background: url('../images/icon_download.png') no-repeat 0% 90%;
 }
 
+.jar_download_link {
+  display: block;
+  float: right;
+  text-indent: -5000px;
+  overflow: hidden;
+  background: url(../images/jar_download.png);
+}
+
 .zip_download_link {
   display: block;
   float: right;
