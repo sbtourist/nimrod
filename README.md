@@ -1,7 +1,6 @@
-# Nimrod 0.5 (WORK-IN-PROGRESS)
+# Nimrod 0.5
 
-Nimrod is a metrics server, inspired by the excellent [Coda Hale's Metrics library](https://github.com/codahale/metrics/), but purely based on log processing:
-hence, it doesn't affect the way you write your applications, nor has it any side effect on them.
+Nimrod is a metrics server purely based on log processing: hence, it doesn't affect the way you write your applications, nor has it any side effect on them.
 In other words, for those of you who love the bullet points:
 
 * You don't have to import any libraries: just print some logs in a way that Nimrod is able to process, and run the Nimrod metrics server to process them.
@@ -125,7 +124,7 @@ values will be sampled and reduced to 1000, while the latest ones will be fully 
 
 ## Download/Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-SNAPSHOT-16052012-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-standalone.jar).
 
 Otherwise, you can check it out and build from source yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
@@ -265,9 +264,23 @@ Finally, metrics can be reset as follows:
 
 Please note that this only resets the latest value, without affecting its history.
 
+# Other Resources
+
+* [API Reference](https://github.com/sbtourist/nimrod/wiki/API-Reference)
+* [Frequently Asked Questions](https://github.com/sbtourist/nimrod/wiki/Frequently-Asked-Questions)
+
+# Related Articles
+
+* [Metrics visibility with Syslog-NG, Nimrod and Nagios](http://metabroadcast.com/blog/logfile-lovin-marrying-nimrod-and-nagios-for-software-visibility)
+
+# Related Projects
+
+* [Nimrod-Java](https://github.com/sbtourist/nimrod-java)
+* [Nimrod-Incanter](https://github.com/sbtourist/nimrod-incanter)
+
 # Feedback
 
-For everything Nimrod-related, join the nimrod-user group: http://groups.google.com/group/nimrod-user
+For everything Nimrod-related, please join the nimrod-user group: http://groups.google.com/group/nimrod-user
 
 # License
 
