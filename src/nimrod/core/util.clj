@@ -26,4 +26,6 @@
 
 (defn days [t] (.toMillis (TimeUnit/DAYS) t))
 
+(defn clock [] (System/currentTimeMillis))
+
 (defn unrationalize [n] (if (ratio? n) (float n) n))

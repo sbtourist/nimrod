@@ -10,17 +10,13 @@
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
  (:refer-clojure :exclude (resultset-seq)))
 
-(defonce oneDay 86400000)
-(defonce oneHour 3600000)
-(defonce oneMinute 60000)
-
 (defonce default-cache-entries 1000)
 (defonce default-cache-results 1000000)
 (defonce default-defrag-limit 0)
 (defonce default-sampling-factor 10)
 (defonce default-sampling-frequency 0)
 
-(defonce default-age oneMinute)
+(defonce default-age (minutes 1))
 
 (defn- from-json-map [m]
   (json/generate-smile m))
@@ -44,7 +40,9 @@
   (remove-history [this metric-ns metric-type metric-id age from to])
   (aggregate-history [this metric-ns metric-type metric-id age from to aggregators])
   
-  (list-types [this metric-ns]))
+  (list-types [this metric-ns])
+
+  (stats [this]))
 
 
 (deftype DiskStore [connection-factory memory options sampling]
@@ -52,7 +50,8 @@
   Store
   
   (init [this]
-    (dosync ref-set memory {})
+    (dosync (ref-set (@memory :metrics) {}))
+    (dosync (ref-set (@memory :stats) {:stored-metrics 0 :stored-metrics-per-second 0 :count-timestamp 0 :metric-timestamp 0}))
     (try 
       (sql/with-connection connection-factory
         (sql/transaction 
@@ -76,31 +75,32 @@
           ["SELECT * FROM metrics"] 
           (doseq [metric all-metrics] 
             (dosync 
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (metric :metric)))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
+              (alter (@memory :metrics) assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
+              (alter (@memory :metrics) assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (metric :metric)))
+              (alter (@memory :metrics) assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
   
-  (set-metric [this metric-ns metric-type metric-id metric aggregation]
-    (let [current-seq-value (or (get-in @memory [metric-ns metric-type metric-id :seq]) 0)
-          current-samples (or (get-in @memory [metric-ns metric-type metric-id :samples]) 0)
-          new-seq-value (inc current-seq-value)
-          new-samples (inc current-samples)
-          new-aggregation-value aggregation
-          new-json-metric (from-json-map metric)
-          new-metric-timestamp (metric :timestamp)
-          sampling-factor (or 
-                            (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
-                            (sampling (str metric-ns "." metric-type ".factor"))
-                            (sampling (str metric-ns ".factor")) 
-                            default-sampling-factor)
-          sampling-frequency (or 
-                               (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
-                               (sampling (str metric-ns "." metric-type ".frequency"))
-                               (sampling (str metric-ns ".frequency"))
-                               default-sampling-frequency)]
+(set-metric [this metric-ns metric-type metric-id metric aggregation]
+  (let [now (clock)
+    current-seq-value (or (get-in @(@memory :metrics) [metric-ns metric-type metric-id :seq]) 0)
+    current-samples (or (get-in @(@memory :metrics) [metric-ns metric-type metric-id :samples]) 0)
+    new-seq-value (inc current-seq-value)
+    new-samples (inc current-samples)
+    new-aggregation-value aggregation
+    new-json-metric (from-json-map metric)
+    new-metric-timestamp (metric :timestamp)
+    sampling-factor (or 
+      (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
+      (sampling (str metric-ns "." metric-type ".factor"))
+      (sampling (str metric-ns ".factor")) 
+      default-sampling-factor)
+    sampling-frequency (or 
+     (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
+     (sampling (str metric-ns "." metric-type ".frequency"))
+     (sampling (str metric-ns ".frequency"))
+     default-sampling-frequency)]
       ; Increment sequence prior to actually using it to avoid duplicated entries:
       (dosync
-        (alter memory assoc-in [metric-ns metric-type metric-id :seq] new-seq-value))
+        (alter (@memory :metrics) assoc-in [metric-ns metric-type metric-id :seq] new-seq-value))
       ; Insert metric/history:
       (sql/with-connection connection-factory 
         (sql/transaction 
@@ -112,7 +112,7 @@
             "history"
             {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})))
       (dosync
-        (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))
+        (alter (@memory :metrics) assoc-in [metric-ns metric-type metric-id :metric] metric))
       ; Optionally sample:
       (if (do-sampling? new-samples sampling-frequency)
         (do 
@@ -123,13 +123,21 @@
                   (do
                     (sql/delete-rows "history" 
                       ["ns=? AND type=? AND id=? AND seq=?"
-                       metric-ns metric-type metric-id record])
+                      metric-ns metric-type metric-id record])
                     (when (> (dec to-delete) 0) (recur (dec record) (dec samples) (dec to-delete))))
                   (recur (dec record) (dec samples) to-delete)))))
           (dosync
-            (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
+            (alter (@memory :metrics) assoc-in [metric-ns metric-type metric-id :samples] 0)))
         (dosync
-          (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))
+          (alter (@memory :metrics) assoc-in [metric-ns metric-type metric-id :samples] new-samples)))
+      ; Update stats:
+      (dosync
+        (if (<= (- now (@(@memory :stats) :metric-timestamp)) (seconds 1))
+          (let [current-rate (@(@memory :stats) :stored-metrics-per-second)]
+            (alter (@memory :stats) assoc-in [:stored-metrics-per-second] (inc current-rate)))
+          (do 
+            (alter (@memory :stats) assoc-in [:stored-metrics-per-second] 1)
+            (alter (@memory :stats) assoc-in [:metric-timestamp] now))))))
   
   (remove-metric [this metric-ns metric-type metric-id]
     (sql/with-connection connection-factory 
@@ -138,11 +146,11 @@
           "metrics" 
           ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id])))
     (dosync
-      (if-let [metrics (get-in @memory [metric-ns metric-type])]
-        (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id)))))
+      (if-let [metrics (get-in @(@memory :metrics) [metric-ns metric-type])]
+        (alter (@memory :metrics) assoc-in [metric-ns metric-type] (dissoc metrics metric-id)))))
   
   (read-metric [this metric-ns metric-type metric-id]
-    (get-in @memory [metric-ns metric-type metric-id :metric]))
+    (get-in @(@memory :metrics) [metric-ns metric-type metric-id :metric]))
   
   (list-metrics [this metric-ns metric-type]
     (sql/with-connection connection-factory
@@ -153,8 +161,9 @@
                            (into [] (map #(get %1 :id) r)))))))
   
   (read-history [this metric-ns metric-type metric-id tags age from to]
-    (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
-          actual-to (or to (System/currentTimeMillis))]
+    (let [now (clock)
+          actual-from (if (nil? from) (- now (or age default-age)) from)
+          actual-to (or to now)]
       (sql/with-connection connection-factory 
         (sql/transaction 
           (sql/with-query-results 
@@ -169,8 +178,9 @@
                  :values metrics})))))))
   
   (remove-history [this metric-ns metric-type metric-id age from to]
-    (let [actual-from (or from 0) 
-          actual-to (if (nil? to) (- (System/currentTimeMillis) (or age default-age)) to)]
+    (let [now (clock)
+          actual-from (or from 0) 
+          actual-to (if (nil? to) (- now (or age default-age)) to)]
       (sql/with-connection connection-factory 
         (let [timestamps (sql/transaction 
                            (sql/with-query-results r
@@ -178,20 +188,21 @@
                              (first r)))
               min-timestamp (max (timestamps :mints) actual-from)
               max-timestamp (min (timestamps :maxts) actual-to)]
-          (loop [upbound (min (+ min-timestamp oneDay) max-timestamp)]
+          (loop [upbound (min (+ min-timestamp (days 1)) max-timestamp)]
             (sql/transaction 
               (sql/delete-rows "history" 
                 ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<?"
                  metric-ns metric-type metric-id min-timestamp upbound]))
             (when (< upbound max-timestamp)
-              (recur (min (+ upbound oneDay) max-timestamp))))))))
+              (recur (min (+ upbound (days 1)) max-timestamp))))))))
   
   (aggregate-history [this metric-ns metric-type metric-id age from to aggregators]
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
-        (let [actual-from (if (nil? from) (- (System/currentTimeMillis) (or age default-age)) from)
-              actual-to (or to (System/currentTimeMillis))
+        (let [now (clock)
+              actual-from (if (nil? from) (- now (or age default-age)) from)
+              actual-to (or to now)
               total (sql/with-query-results total-results
                       ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to]
                       ((first total-results) :total))
@@ -217,10 +228,24 @@
         (sql/with-query-results 
           all-types
           ["SELECT type FROM metrics WHERE ns=? GROUP BY type ORDER BY type" metric-ns]
-          (into [] (for [type all-types] (type :type))))))))
+          (into [] (for [type all-types] (type :type)))))))
+
+  (stats [this] 
+    (when (> (- (clock) (@(@memory :stats) :count-timestamp)) (minutes 1))
+      (let [current-count (sql/with-connection connection-factory
+                            (sql/transaction 
+                              (sql/with-query-results r ["SELECT COUNT(*) AS total FROM history"] ((first r) :total))))]
+      (dosync
+        (alter (@memory :stats) assoc-in [:stored-metrics] current-count)
+        (alter (@memory :stats) assoc-in [:count-timestamp] (clock)))))
+    (when (> (- (clock) (@(@memory :stats) :metric-timestamp)) (seconds 1))
+      (dosync
+        (alter (@memory :stats) assoc-in [:stored-metrics-per-second] 0)
+        (alter (@memory :stats) assoc-in [:metric-timestamp] (clock))))
+    @(@memory :stats)))
 
 
-(defn new-disk-store 
+(defn new-disk-store
   ([path options sampling]
     (when (seq options) (log/info (str "Starting DiskStore with options: " options)))
     (when (seq sampling) (log/info (str "Sampling with: " sampling)))
@@ -241,7 +266,7 @@
                  (.setInitialPoolSize 0)
                  (.setAcquireIncrement 1)
                  (.setNumHelperThreads 5))
-          store (DiskStore. {:datasource pool} (ref {}) options sampling)]
+          store (DiskStore. {:datasource pool} (atom {:metrics (ref nil) :stats (ref nil) :tmp (ref nil)}) options sampling)]
       (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool))))
       (init store)
       store))

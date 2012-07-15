@@ -72,6 +72,13 @@
 
 (http/defroutes nimrod-routes
   
+  (http/GET "/admin/stats" []
+    (let [logs-stats (show-tail-stats) store-stats (stats @metrics-store)]
+      (cors-response :ok {
+        :logs (select-keys logs-stats [:processed-logs-per-second :processed-metrics-per-second])
+        :store (select-keys store-stats [:stored-metrics :stored-metrics-per-second])
+        })))
+  
   (http/GET "/logs" []
     (cors-response :ok (list-tailers)))
   (http/GET "/logs/" [:as request]

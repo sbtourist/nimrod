@@ -136,8 +136,9 @@
   (reset! metrics-store store))
 
 (defn compute-metric [type metric-ns metric-id timestamp value tags]
-  (let [current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
-        new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string (System/currentTimeMillis)))]
+  (let [now (clock)
+        current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
+        new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string now))]
     (try 
       (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (aggregation-value-of type new-metric)) 
       (catch Exception ex (log/error (.getMessage ex) ex)))))

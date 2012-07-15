@@ -32,8 +32,9 @@
 
 (defn process [log line]
   (try
-    (when-let [extracted (extract line)]
+    (if-let [extracted (extract line)]
       (if-let [metric (type-of (extracted :metric))]
-        (compute-metric metric log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags))
-        (log/warn (str "No metric with name: " (extracted :metric)))))
-    (catch Exception ex (log/error (.getMessage ex) ex))))
+        (do (compute-metric metric log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags)) true)
+        (do (log/warn (str "No metric with name: " (extracted :metric))) false))
+      false)
+    (catch Exception ex (do (log/error (.getMessage ex) ex) false))))

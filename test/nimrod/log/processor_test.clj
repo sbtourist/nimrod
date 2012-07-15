@@ -11,7 +11,7 @@
 (deftest process-log-line
   (testing "Process full log line"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "[nimrod][1][alert][name][value][tag1,tag2]")
+      (is (= true (process "log" "[nimrod][1][alert][name][value][tag1,tag2]")))
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
@@ -21,7 +21,7 @@
       (reset! test-metric nil)))
   (testing "Process full log line with nested square brackets"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "[nimrod][1][alert][name][value][[nested],[tag]]")
+      (is (= true (process "log" "[nimrod][1][alert][name][value][[nested],[tag]]")))
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
@@ -31,7 +31,7 @@
       (reset! test-metric nil)))
   (testing "Process full log line with interleaved text"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "this[nimrod]is[1]an[alert]interleaved[name]text[value]string[tag1,tag2]!")
+      (is (= true (process "log" "this[nimrod]is[1]an[alert]interleaved[name]text[value]string[tag1,tag2]!")))
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
@@ -41,7 +41,7 @@
       (reset! test-metric nil)))
   (testing "Process log line with no tags"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "[nimrod][1][alert][name][value]")
+      (is (= true (process "log" "[nimrod][1][alert][name][value]")))
       (is (= alert (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
@@ -51,16 +51,16 @@
       (reset! test-metric nil)))
   (testing "No log line processing due to missing prefix"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "[1][alert][name][value]")
+      (is (= false (process "log" "[1][alert][name][value]")))
       (is (nil? @test-metric))
       (reset! test-metric nil)))
   (testing "No log line processing due to bad timestamp"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "[nimrod][bad timestamp][alert][name][value]")
+      (is (= false (process "log" "[nimrod][bad timestamp][alert][name][value]")))
       (is (nil? @test-metric))
       (reset! test-metric nil)))
   (testing "No log line processing due to bad metric"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
-      (process "log" "[nimrod][1][bad metric][name][value]")
+      (is (= false (process "log" "[nimrod][1][bad metric][name][value]")))
       (is (nil? @test-metric))
       (reset! test-metric nil))))
