@@ -5,7 +5,7 @@
    [clojure.set :as cset]
    [clojure.tools.logging :as log])
  (:use
-   [nimrod.core.stat]
+   [nimrod.core.math]
    [nimrod.core.util]
    [nimrod.internal.stats])
  (:import com.mchange.v2.c3p0.ComboPooledDataSource)
