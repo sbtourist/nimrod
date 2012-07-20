@@ -73,7 +73,7 @@
 
 (http/defroutes nimrod-routes
   
-  (http/GET "/admin/stats" []
+  (http/GET "/system/stats" []
     (cors-response :ok {
       :logs (show-tail-stats)
       :store (stats @metrics-store)
