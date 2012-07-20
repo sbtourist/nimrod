@@ -232,25 +232,20 @@
     (is (= metric-2-2 (read-metric store metric-ns-2 metric-type-2 metric-id-2)))))
 
 (defn store-stats [store]
+  (Thread/sleep 1000)
   (let [metric-ns "1" metric-type "gauge" metric-id "1"
-    metric-1 {:value 1 :timestamp 1} metric-2 {:value 1 :timestamp 2} metric-3 {:value 1 :timestamp 3} metric-4 {:value 1 :timestamp 4}]
-    (testing "Processed metrics per second at startup"
-      (is (= 0 ((stats store) :stored-metrics-per-second))))
-    (testing "Stored metrics at startup"
-      (is (= 0 ((stats store) :stored-metrics))))
+        metric-1 {:value 1 :timestamp 1} metric-2 {:value 1 :timestamp 2} metric-3 {:value 1 :timestamp 3} metric-4 {:value 1 :timestamp 4}]
     (set-metric store metric-ns metric-type metric-id metric-1 1)
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
+    (Thread/sleep 250)
     (testing "Processed metrics per second in same second"
       (is (= 3 ((stats store) :stored-metrics-per-second))))
-    (testing "Stored metrics is not updated because under minute"
-      (is (= 0 ((stats store) :stored-metrics))))
     (with-redefs [nimrod.core.util/clock (fn [] (+ (System/currentTimeMillis) (nimrod.core.util/minutes 1)))]
       (set-metric store metric-ns metric-type metric-id metric-4 4)
-      (testing "Processed metrics per second after minutes"
-        (is (= 1 ((stats store) :stored-metrics-per-second))))
-      (testing "Stored metrics is updated because after minutes"
-        (is (= 4 ((stats store) :stored-metrics)))))))
+      (Thread/sleep 250)
+      (testing "Stored metrics per second restarts"
+        (is (= 1 ((stats store) :stored-metrics-per-second)))))))
 
 (deftest disk-store-test 
   (set-and-read-metric (new-disk-store (java.io.File/createTempFile "test" "1")))

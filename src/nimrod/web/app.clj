@@ -10,6 +10,7 @@
  (:use
    [nimrod.core.metric]
    [nimrod.core.store]
+   [nimrod.internal.stats]
    [nimrod.log.tailer])
  (:refer-clojure :exclude [split]))
 
@@ -73,11 +74,10 @@
 (http/defroutes nimrod-routes
   
   (http/GET "/admin/stats" []
-    (let [logs-stats (show-tail-stats) store-stats (stats @metrics-store)]
-      (cors-response :ok {
-        :logs (select-keys logs-stats [:processed-logs-per-second :processed-metrics-per-second])
-        :store (select-keys store-stats [:stored-metrics :stored-metrics-per-second])
-        })))
+    (cors-response :ok {
+      :logs (show-tail-stats)
+      :store (stats @metrics-store)
+      }))
   
   (http/GET "/logs" []
     (cors-response :ok (list-tailers)))
