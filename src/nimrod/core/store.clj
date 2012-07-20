@@ -8,7 +8,7 @@
    [nimrod.core.math]
    [nimrod.core.util]
    [nimrod.internal.stats])
- (:import com.mchange.v2.c3p0.ComboPooledDataSource)
+ (:import org.hsqldb.jdbc.JDBCPool)
  (:refer-clojure :exclude (resultset-seq)))
 
 (defonce default-cache-entries 1000)
@@ -241,23 +241,17 @@
     (when (seq sampling) (log/info (str "Sampling with: " sampling)))
     (let [defrag-limit (or (options "defrag.limit") default-defrag-limit)
           cache-entries (or (options "cache.entries") default-cache-entries)
-          pool (doto (ComboPooledDataSource.)
-                 (.setDriverClass "org.hsqldb.jdbc.JDBCDriver") 
-                 (.setJdbcUrl (str 
+          pool (doto (JDBCPool.)
+                 (.setUrl (str 
                                 "jdbc:hsqldb:file:" path ";"
                                 "shutdown=true;hsqldb.applog=2;hsqldb.log_size=50;hsqldb.cache_file_scale=128;"
                                 "hsqldb.defrag_limit=" defrag-limit ";" 
                                 "hsqldb.cache_rows=" cache-entries ";" 
                                 "hsqldb.cache_size=" cache-entries))
                  (.setUser "SA")
-                 (.setPassword "")
-                 (.setMinPoolSize 1)
-                 (.setMaxPoolSize 10)
-                 (.setInitialPoolSize 0)
-                 (.setAcquireIncrement 1)
-                 (.setNumHelperThreads 5))
+                 (.setPassword ""))
           store (DiskStore. {:datasource pool} (ref nil) options sampling)]
-      (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool))))
+      (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool 1))))
       (init store)
       store))
   ([path options] (new-disk-store path options {}))
