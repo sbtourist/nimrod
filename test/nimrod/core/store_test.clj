@@ -231,22 +231,6 @@
     (is (= metric-1-2 (read-metric store metric-ns-1 metric-type-1 metric-id-1)))
     (is (= metric-2-2 (read-metric store metric-ns-2 metric-type-2 metric-id-2)))))
 
-(defn store-stats [store]
-  (Thread/sleep 1000)
-  (let [metric-ns "1" metric-type "gauge" metric-id "1"
-        metric-1 {:value 1 :timestamp 1} metric-2 {:value 1 :timestamp 2} metric-3 {:value 1 :timestamp 3} metric-4 {:value 1 :timestamp 4}]
-    (set-metric store metric-ns metric-type metric-id metric-1 1)
-    (set-metric store metric-ns metric-type metric-id metric-2 2)
-    (set-metric store metric-ns metric-type metric-id metric-3 3)
-    (Thread/sleep 250)
-    (testing "Processed metrics per second in same second"
-      (is (= 3 ((stats store) :stored-metrics-per-second))))
-    (with-redefs [nimrod.core.util/clock (fn [] (+ (System/currentTimeMillis) (nimrod.core.util/minutes 1)))]
-      (set-metric store metric-ns metric-type metric-id metric-4 4)
-      (Thread/sleep 250)
-      (testing "Stored metrics per second restarts"
-        (is (= 1 ((stats store) :stored-metrics-per-second)))))))
-
 (deftest disk-store-test 
   (set-and-read-metric (new-disk-store (java.io.File/createTempFile "test" "1")))
   (set-and-remove-metric (new-disk-store (java.io.File/createTempFile "test" "2")))
@@ -268,5 +252,4 @@
   (list-metrics-by-type (new-disk-store (java.io.File/createTempFile "test" "16")))
   (list-types-with-metrics (new-disk-store (java.io.File/createTempFile "test" "17")))
   (list-types-after-removal (new-disk-store (java.io.File/createTempFile "test" "18")))
-  (post-init (new-disk-store (java.io.File/createTempFile "test" "19")))
-  (store-stats (new-disk-store (java.io.File/createTempFile "test" "20"))))
+  (post-init (new-disk-store (java.io.File/createTempFile "test" "19"))))

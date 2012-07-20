@@ -80,6 +80,7 @@
               (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
   
 (set-metric [this metric-ns metric-type metric-id metric aggregation]
+  (update-rate-stats :operations-per-second (clock) (seconds 1))
   (let [now (clock)
     current-seq-value (or (get-in @memory [metric-ns metric-type metric-id :seq]) 0)
     current-samples (or (get-in @memory [metric-ns metric-type metric-id :samples]) 0)
@@ -129,11 +130,10 @@
           (dosync
             (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
         (dosync
-          (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))
-      ; Update stats:
-      (update-rate-stats :stored-metrics-per-second (clock))))
+          (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))
   
   (remove-metric [this metric-ns metric-type metric-id]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (sql/with-connection connection-factory 
       (sql/transaction 
         (sql/delete-rows 
@@ -144,9 +144,11 @@
         (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id)))))
   
   (read-metric [this metric-ns metric-type metric-id]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (get-in @memory [metric-ns metric-type metric-id :metric]))
   
   (list-metrics [this metric-ns metric-type]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (sql/with-connection connection-factory
       (sql/transaction (sql/with-query-results 
                          r 
@@ -155,6 +157,7 @@
                            (into [] (map #(get %1 :id) r)))))))
   
   (read-history [this metric-ns metric-type metric-id tags age from to]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (let [now (clock)
           actual-from (if (nil? from) (- now (or age default-age)) from)
           actual-to (or to now)]
@@ -172,6 +175,7 @@
                  :values metrics})))))))
   
   (remove-history [this metric-ns metric-type metric-id age from to]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (let [now (clock)
           actual-from (or from 0) 
           actual-to (if (nil? to) (- now (or age default-age)) to)]
@@ -191,6 +195,7 @@
               (recur (min (+ upbound (days 1)) max-timestamp))))))))
   
   (aggregate-history [this metric-ns metric-type metric-id age from to aggregators]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
@@ -217,6 +222,7 @@
              })))))
   
   (list-types [this metric-ns]
+    (update-rate-stats :operations-per-second (clock) (seconds 1))
     (sql/with-connection connection-factory
       (sql/transaction
         (sql/with-query-results 
@@ -225,8 +231,8 @@
           (into [] (for [type all-types] (type :type)))))))
 
   (stats [this]
-    (refresh-rate-stats :stored-metrics-per-second)
-    (select-keys (show-stats) [:stored-metrics-per-second])))
+    (refresh-rate-stats :operations-per-second (seconds 1))
+    (select-keys (show-stats) [:operations-per-second])))
 
 
 (defn new-disk-store
