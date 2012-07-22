@@ -39,8 +39,8 @@
   (list-metrics [this metric-ns metric-type])
   
   (read-history [this metric-ns metric-type metric-id tags age from to])
-  (remove-history [this metric-ns metric-type metric-id age from to])
-  (aggregate-history [this metric-ns metric-type metric-id age from to aggregators])
+  (remove-history [this metric-ns metric-type metric-id tags age from to])
+  (aggregate-history [this metric-ns metric-type metric-id tags age from to aggregators])
   
   (list-types [this metric-ns])
 
@@ -181,7 +181,7 @@
                  :count (count metrics) 
                  :values metrics})))))))
   
-  (remove-history [this metric-ns metric-type metric-id age from to]
+  (remove-history [this metric-ns metric-type metric-id tags age from to]
     (update-rate-stats :operations-per-second (clock) (seconds 1))
     (let [now (clock)
           actual-from (or from 0) 
@@ -196,12 +196,12 @@
           (loop [upbound (min (+ min-timestamp (days 1)) max-timestamp)]
             (sql/transaction 
               (sql/delete-rows "history" 
-                ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<?"
-                 metric-ns metric-type metric-id min-timestamp upbound]))
+                ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<? AND check_tags(metric, ?)"
+                 metric-ns metric-type metric-id min-timestamp upbound (string/join "," tags)]))
             (when (< upbound max-timestamp)
               (recur (min (+ upbound (days 1)) max-timestamp))))))))
   
-  (aggregate-history [this metric-ns metric-type metric-id age from to aggregators]
+  (aggregate-history [this metric-ns metric-type metric-id tags age from to aggregators]
     (update-rate-stats :operations-per-second (clock) (seconds 1))
     (sql/with-connection connection-factory
       (sql/transaction 
@@ -210,11 +210,12 @@
               actual-from (if (nil? from) (- now (or age default-age)) from)
               actual-to (or to now)
               total (sql/with-query-results total-results
-                      ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to]
+                      ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? AND check_tags(metric, ?)" 
+                       metric-ns metric-type metric-id actual-from actual-to (string/join "," tags)]
                       ((first total-results) :total))
               query (sql/prepare-statement 
                       (sql/connection) 
-                      (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " ORDER BY aggregation ASC") 
+                      (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " AND check_tags(metric,'" (string/join "," tags) "') ORDER BY aggregation ASC") 
                       :concurrency :read-only :result-type :scroll-insensitive :fetch-size 1)
               rs (.executeQuery query)]
           (when (.first rs)
