@@ -24,7 +24,7 @@
 
 (deftest setup-server
   (let [data (atom nil)]
-    (with-redefs [start-server #(reset! data %1)
+    (with-redefs [start-server #(reset! data (str %1 ":" %2))
                   new-disk-store (fn [_ _ _] nil)]
       (setup "test/nimrod3.conf")
-      (is (= 8080 @data)))))
+      (is (= "8080:10" @data)))))

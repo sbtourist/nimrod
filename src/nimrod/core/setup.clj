@@ -22,7 +22,7 @@
 
 (defn- setup-server [conf]
   (when-let [server (.get conf "server")]
-    (start-server (.get server "port"))))
+    (start-server (.get server "port") (.get server "threads"))))
 
 (defn setup [source]
   (let [conf (.unwrapped (.root (ConfigFactory/parseFile (io/file source))))]
