@@ -6,24 +6,18 @@
 
 (defn update-rate-stats [k t f]
   (send stats-agent 
-    (fn [state t]
+    (fn [state]
       (let [rate (get-in state [:stats k] 0)
             timestamp (get-in state [:tmp k :timestamp] 0)]
         (if (<= (- t timestamp) f)
           (assoc-in state [:stats k] (inc rate))
           (-> state
             (assoc-in [:stats k] 1)
-            (assoc-in [:tmp k :timestamp] t)))))
-    t))
+            (assoc-in [:tmp k :timestamp] t)))))))
 
-(defn refresh-rate-stats [k f]
-  (await-for 1000 (send stats-agent 
-    (fn [state]
-      (let [now (clock)
-            timestamp (get-in state [:tmp k :timestamp] 0)]
-        (if (> (- now timestamp) f)
-          (assoc-in state [:stats k] 0)
-          state))))))
-
-(defn show-stats []
-  (@stats-agent :stats))
+(defn show-stats [ks t f]
+  (into {} 
+    (for [k ks]
+      (let [rate (get-in @stats-agent [:stats k] 0)
+            timestamp (get-in @stats-agent [:tmp k :timestamp] 0)]
+        [k (Math/round (double (* (/ rate (- t timestamp)) f)))]))))

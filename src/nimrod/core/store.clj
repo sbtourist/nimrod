@@ -231,8 +231,7 @@
           (into [] (for [type all-types] (type :type)))))))
 
   (stats [this]
-    (refresh-rate-stats :operations-per-second (seconds 1))
-    (select-keys (show-stats) [:operations-per-second])))
+    (show-stats [:operations-per-second] (clock) (seconds 1))))
 
 
 (defn new-disk-store

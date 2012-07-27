@@ -57,6 +57,4 @@
     (for [tailer @tailers] [(tailer 0) ((tailer 1) :log)])))
 
 (defn show-tail-stats []
-  (refresh-rate-stats :processed-logs-per-second (seconds 1))
-  (refresh-rate-stats :processed-metrics-per-second (seconds 1))
-  (select-keys (show-stats) [:processed-logs-per-second :processed-metrics-per-second]))
+  (show-stats [:processed-logs-per-second :processed-metrics-per-second] (clock) (seconds 1)))

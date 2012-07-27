@@ -5,18 +5,11 @@
     [nimrod.internal.stats]))
 
 (deftest stats
-  (update-rate-stats :test (clock) (seconds 1))
-  (update-rate-stats :test (clock) (seconds 1))
-  (update-rate-stats :test (clock) (seconds 1))
-  (Thread/sleep 250)
-  (testing "Updated"
-    (is (= 3 ((show-stats) :test))))
-  (update-rate-stats :test (+ (clock) (seconds 2)) (seconds 1))
-  (Thread/sleep 250)
-  (testing "Restarted"
-    (is (= 1 ((show-stats) :test))))
-  (with-redefs [nimrod.core.util/clock (fn [] (+ (System/currentTimeMillis) (minutes 1)))]
-    (refresh-rate-stats :test (seconds 1))
+  (testing "Equals the number of updates (3) times 1000/250"
+    (update-rate-stats :test (clock) (seconds 1))
+    (update-rate-stats :test (clock) (seconds 1))
+    (update-rate-stats :test (clock) (seconds 1))
     (Thread/sleep 250)
-    (testing "Refreshed"
-      (is (= 0 ((show-stats) :test))))))
+    (is (= 12 ((show-stats [:test] (clock) (seconds 1)) :test))))
+  (testing "Zero-ed"
+    (is (= 0 ((show-stats [:test] (+ (clock) (seconds 10)) (seconds 1)) :test)))))
