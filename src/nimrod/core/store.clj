@@ -3,6 +3,7 @@
    [cheshire.core :as json]
    [clojure.java.jdbc :as sql]
    [clojure.set :as cset]
+   [clojure.string :as string]
    [clojure.tools.logging :as log])
  (:use
    [nimrod.core.math]
@@ -38,8 +39,8 @@
   (list-metrics [this metric-ns metric-type])
   
   (read-history [this metric-ns metric-type metric-id tags age from to])
-  (remove-history [this metric-ns metric-type metric-id age from to])
-  (aggregate-history [this metric-ns metric-type metric-id age from to aggregators])
+  (remove-history [this metric-ns metric-type metric-id tags age from to])
+  (aggregate-history [this metric-ns metric-type metric-id tags age from to aggregators])
   
   (list-types [this metric-ns])
 
@@ -62,6 +63,12 @@
           (sql/do-prepared 
             "CREATE INDEX history_seq_idx ON history (ns,type,id,seq)")))
       (catch Exception ex))
+    (try 
+      (sql/with-connection connection-factory
+        (sql/transaction 
+          (sql/do-prepared 
+            "CREATE FUNCTION check_tags(metric LONGVARBINARY, tags LONGVARCHAR) RETURNS BOOLEAN NO SQL DETERMINISTIC LANGUAGE JAVA EXTERNAL NAME 'CLASSPATH:nimrod.java.TagsPredicate.contains'")))
+      (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
         (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
@@ -82,23 +89,23 @@
 (set-metric [this metric-ns metric-type metric-id metric aggregation]
   (update-rate-stats :operations-per-second (clock) (seconds 1))
   (let [now (clock)
-    current-seq-value (or (get-in @memory [metric-ns metric-type metric-id :seq]) 0)
-    current-samples (or (get-in @memory [metric-ns metric-type metric-id :samples]) 0)
-    new-seq-value (inc current-seq-value)
-    new-samples (inc current-samples)
-    new-aggregation-value aggregation
-    new-json-metric (from-json-map metric)
-    new-metric-timestamp (metric :timestamp)
-    sampling-factor (or 
-      (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
-      (sampling (str metric-ns "." metric-type ".factor"))
-      (sampling (str metric-ns ".factor")) 
-      default-sampling-factor)
-    sampling-frequency (or 
-     (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
-     (sampling (str metric-ns "." metric-type ".frequency"))
-     (sampling (str metric-ns ".frequency"))
-     default-sampling-frequency)]
+        current-seq-value (or (get-in @memory [metric-ns metric-type metric-id :seq]) 0)
+        current-samples (or (get-in @memory [metric-ns metric-type metric-id :samples]) 0)
+        new-seq-value (inc current-seq-value)
+        new-samples (inc current-samples)
+        new-aggregation-value aggregation
+        new-json-metric (from-json-map metric)
+        new-metric-timestamp (metric :timestamp)
+        sampling-factor (or 
+          (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
+          (sampling (str metric-ns "." metric-type ".factor"))
+          (sampling (str metric-ns ".factor")) 
+          default-sampling-factor)
+        sampling-frequency (or 
+          (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
+          (sampling (str metric-ns "." metric-type ".frequency"))
+          (sampling (str metric-ns ".frequency"))
+         default-sampling-frequency)]
       ; Increment sequence prior to actually using it to avoid duplicated entries:
       (dosync
         (alter memory assoc-in [metric-ns metric-type metric-id :seq] new-seq-value))
@@ -165,16 +172,16 @@
         (sql/transaction 
           (sql/with-query-results 
             r 
-            ["SELECT metric FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? ORDER BY timestamp DESC" 
-             metric-ns metric-type metric-id actual-from actual-to]
+            ["SELECT metric FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? AND check_tags(metric, ?) ORDER BY timestamp DESC" 
+             metric-ns metric-type metric-id actual-from actual-to (string/join "," tags)]
             (when (seq r) 
-              (let [metrics (into [] (for [metric (map #(to-json-map (%1 :metric)) r) :when (cset/subset? tags (metric :tags))] metric))]
+              (let [metrics (into [] (map #(to-json-map (%1 :metric)) r))]
                 {:time 
                  {:from (date-to-string actual-from) :to (date-to-string actual-to)} 
                  :count (count metrics) 
                  :values metrics})))))))
   
-  (remove-history [this metric-ns metric-type metric-id age from to]
+  (remove-history [this metric-ns metric-type metric-id tags age from to]
     (update-rate-stats :operations-per-second (clock) (seconds 1))
     (let [now (clock)
           actual-from (or from 0) 
@@ -189,12 +196,12 @@
           (loop [upbound (min (+ min-timestamp (days 1)) max-timestamp)]
             (sql/transaction 
               (sql/delete-rows "history" 
-                ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<?"
-                 metric-ns metric-type metric-id min-timestamp upbound]))
+                ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<? AND check_tags(metric, ?)"
+                 metric-ns metric-type metric-id min-timestamp upbound (string/join "," tags)]))
             (when (< upbound max-timestamp)
               (recur (min (+ upbound (days 1)) max-timestamp))))))))
   
-  (aggregate-history [this metric-ns metric-type metric-id age from to aggregators]
+  (aggregate-history [this metric-ns metric-type metric-id tags age from to aggregators]
     (update-rate-stats :operations-per-second (clock) (seconds 1))
     (sql/with-connection connection-factory
       (sql/transaction 
@@ -203,11 +210,12 @@
               actual-from (if (nil? from) (- now (or age default-age)) from)
               actual-to (or to now)
               total (sql/with-query-results total-results
-                      ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=?" metric-ns metric-type metric-id actual-from actual-to]
+                      ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? AND check_tags(metric, ?)" 
+                       metric-ns metric-type metric-id actual-from actual-to (string/join "," tags)]
                       ((first total-results) :total))
               query (sql/prepare-statement 
                       (sql/connection) 
-                      (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " ORDER BY aggregation ASC") 
+                      (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " AND check_tags(metric,'" (string/join "," tags) "') ORDER BY aggregation ASC") 
                       :concurrency :read-only :result-type :scroll-insensitive :fetch-size 1)
               rs (.executeQuery query)]
           (when (.first rs)

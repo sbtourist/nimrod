@@ -113,7 +113,6 @@
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
-  
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
     [log-id metric-type metric-id tags age from to]
     (if-let [metric-type (type-of metric-type)]
@@ -121,18 +120,18 @@
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+" :percentiles #"[\d|,]+"] 
-    [log-id metric-type metric-id age from to percentiles]
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+" :percentiles #"[\d|,]+"] 
+    [log-id metric-type metric-id tags age from to percentiles]
     (if-let [metric-type (type-of metric-type)]
-      (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (parse-long age) (parse-long from) (parse-long to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
+      (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
         (cors-response :ok result)
         (cors-response :not-found))
       (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
-    [log-id metric-type metric-id age from to]
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
+    [log-id metric-type metric-id tags age from to]
     (if-let [metric-type (type-of metric-type)]
       (do
-        (remove-history @metrics-store log-id metric-type metric-id (parse-long age) (parse-long from) (parse-long to))
+        (remove-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to))
         (std-response :no-content))
       (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
