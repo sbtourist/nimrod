@@ -1,10 +1,11 @@
-(ns nimrod.conf.setup
+(ns nimrod.core.setup
  (:require
    [clojure.java.io :as io])
  (:use
    [nimrod.core.metric]
    [nimrod.core.store]
-   [nimrod.log.tailer])
+   [nimrod.log.tailer]
+   [nimrod.web.server])
  (:import [com.typesafe.config ConfigFactory]))
 
 (defn- setup-logs [conf]
@@ -19,7 +20,12 @@
       "disk" (setup-metric-store (new-disk-store "nimrod-data/db" options sampling))
       (throw (IllegalStateException. (str "Bad store configuration: " (store "type")))))))
 
+(defn- setup-server [conf]
+  (when-let [server (.get conf "server")]
+    (start-server (.get server "port") (.get server "threads"))))
+
 (defn setup [source]
   (let [conf (.unwrapped (.root (ConfigFactory/parseFile (io/file source))))]
     (setup-store conf)
-    (setup-logs conf)))
+    (setup-logs conf)
+    (setup-server conf)))

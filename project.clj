@@ -14,4 +14,4 @@
                 [org.slf4j/slf4j-api "1.6.1"]
                 [org.slf4j/slf4j-log4j12 "1.6.1"]]
  :repositories {"typesafe" "http://repo.typesafe.com/typesafe/releases"}
- :aot [nimrod.web.startup])
+ :aot [nimrod.core.startup])
