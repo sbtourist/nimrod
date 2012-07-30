@@ -17,8 +17,7 @@
     (io/file log)
     (proxy [TailerListenerAdapter] []
       (handle [obj] 
-        (let [now (clock)
-              processed (process id obj)] 
+        (let [now (clock) processed (process id obj)] 
           (update-rate-stats :processed-logs-per-second now (seconds 1)) 
           (when processed (update-rate-stats :processed-metrics-per-second now (seconds 1)))))
       (fileNotFound [] (log/error (str "Log file not found: " log)))

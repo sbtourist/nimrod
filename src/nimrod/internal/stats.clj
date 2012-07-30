@@ -1,6 +1,5 @@
 (ns nimrod.internal.stats
-  (:use
-    [nimrod.core.util]))
+  (:use [nimrod.core.util]))
 
 (defonce stats-agent (new-agent {:stats {} :tmp {}}))
 
