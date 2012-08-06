@@ -24,7 +24,10 @@
 
 (deftest setup-server
   (let [data (atom nil)]
-    (with-redefs [start-server #(reset! data (str %1 ":" %2))
-                  new-disk-store (fn [_ _ _] nil)]
+    (with-redefs 
+      [start-server #(reset! data (str %1 ":" %2))
+      max-busy-requests (atom nil)
+      new-disk-store (fn [_ _ _] nil)]
       (setup "test/nimrod3.conf")
-      (is (= "8080:10" @data)))))
+      (is (= "8080:10" @data))
+      (is (= 1 @max-busy-requests)))))

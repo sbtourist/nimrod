@@ -23,6 +23,7 @@
 
 (defn- setup-server [conf]
   (when-let [server (.get conf "server")]
+    (when (.get server "max-busy-requests") (reset! max-busy-requests (.get server "max-busy-requests")))
     (start-server (.get server "port") (.get server "threads"))))
 
 (defn setup [source]
