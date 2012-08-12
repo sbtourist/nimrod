@@ -20,7 +20,7 @@
 (defonce std-response-headers {"Content-Type" "application/json"})
 (defonce cors-response-headers {"Content-Type" "application/json" "Access-Control-Allow-Origin" "*"})
 
-(defonce max-busy-requests (atom 25)) 
+(defonce max-busy-requests (atom 10)) 
 
 (defn- type-of [metric-path]
   (condp = metric-path
