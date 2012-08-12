@@ -18,8 +18,12 @@
     (proxy [TailerListenerAdapter] []
       (handle [obj] 
         (let [now (clock) processed (process id obj)] 
-          (update-rate-stats :processed-logs-per-second now (seconds 1)) 
-          (when processed (update-rate-stats :processed-metrics-per-second now (seconds 1)))))
+          (update-rate-stats [:processed-logs-per-second] now (seconds 1))
+          (update-rate-stats [:processed-logs-per-second-per-file (keyword id)] now (seconds 1))
+          (when processed 
+            (do 
+              (update-rate-stats [:processed-metrics-per-second] now (seconds 1))
+              (update-rate-stats [:processed-metrics-per-second-per-file (keyword id)] now (seconds 1))))))
       (fileNotFound [] (log/error (str "Log file not found: " log)))
       (fileRotated [] (log/info (str "Rotated log file: " log)))
       (error [obj] (log/error (.getMessage obj) obj))
@@ -56,4 +60,9 @@
     (for [tailer @tailers] [(tailer 0) ((tailer 1) :log)])))
 
 (defn show-tail-stats []
-  (show-stats [:processed-logs-per-second :processed-metrics-per-second] (clock) (seconds 1)))
+  (show-stats 
+    (-> [[:processed-logs-per-second] [:processed-metrics-per-second]]
+      (into (for [id (keys @tailers)] [:processed-logs-per-second-per-file (keyword id)]))
+      (into (for [id (keys @tailers)] [:processed-metrics-per-second-per-file (keyword id)])))
+    (clock)
+    (seconds 1)))
