@@ -9,7 +9,7 @@
  (:import
    [tayler Tailer TailerListenerAdapter]))
 
-(defonce tailer-buffer-size 8192)
+(defonce tailer-buffer-size (* 64 1024))
 (defonce tailers (ref {}))
 
 (defn- create-tailer [id log interval end]
