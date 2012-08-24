@@ -15,7 +15,7 @@
 (deftype Alert []
   MetricType
   (name-of [this] "nimrod.core.metric.Alert")
-  (aggregation-value-of [this metric] (metric :timestamp))
+  (aggregation-value-of [this metric] 0)
   (compute [this id timestamp current-value new-value tags]
     (let [new-time (Long/parseLong timestamp) alert new-value]
       (if-let [current current-value]
