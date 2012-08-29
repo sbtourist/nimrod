@@ -60,13 +60,15 @@
 (defn set-and-read-metric-history-by-tags [store]
   (let [metric-ns "1" metric-type "gauge" metric-id "1" 
         metric-1 {:value 1 :timestamp 1 :tags #{"t"}}
-        metric-2 {:value 2 :timestamp 2 :tags #{"t1"}}
-        metric-3 {:value 3 :timestamp 3 :tags #{"t1"}}]
+        metric-2 {:value 2 :timestamp 2 :tags #{true}}
+        metric-3 {:value 3 :timestamp 3 :tags #{1}}
+        metric-4 {:value 4 :timestamp 4 :tags nil}]
     (set-metric store metric-ns metric-type metric-id metric-1 1)
     (set-metric store metric-ns metric-type metric-id metric-2 2)
     (set-metric store metric-ns metric-type metric-id metric-3 3)
+    (set-metric store metric-ns metric-type metric-id metric-4 4)
     (testing "Current metric value"
-      (is (= metric-3 (read-metric store metric-ns metric-type metric-id))))
+      (is (= metric-4 (read-metric store metric-ns metric-type metric-id))))
     (testing "Metric history values"
       (let [history (read-history store metric-ns metric-type metric-id #{"t"} nil 0 Long/MAX_VALUE)]
         (is (= [metric-1] (history :values)))))))

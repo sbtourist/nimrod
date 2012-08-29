@@ -14,15 +14,18 @@ public class TagsPredicate {
             JsonParser parser = FACTORY.createJsonParser(metric);
             try {
                 HashSet candidates = new HashSet();
-                boolean contains = true;
+                boolean contains = false;
                 candidates.addAll(tags.split(","));
                 while (parser.nextToken() != null) {
-                    if (parser.getCurrentName() != null && parser.getCurrentName().equals("tags")) {
+                    if (parser.getCurrentName() != null
+                            && parser.getCurrentName().equals("tags")
+                            && parser.getCurrentToken().equals(JsonToken.FIELD_NAME)
+                            && parser.nextToken().equals(JsonToken.START_ARRAY)) {
                         HashSet actual = new HashSet();
                         while (!parser.nextToken().equals(JsonToken.END_ARRAY)) {
                             actual.add(parser.getText());
                         }
-                        contains = actual.isEmpty() || actual.containsAll(candidates);
+                        contains = actual.containsAll(candidates);
                         break;
                     }
                 }
