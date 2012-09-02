@@ -11,6 +11,7 @@
  (:use
    [nimrod.core.metric]
    [nimrod.core.store]
+   [nimrod.core.util]
    [nimrod.internal.stats]
    [nimrod.internal.switch]
    [nimrod.log.tailer])
@@ -37,9 +38,6 @@
     (name-of counter) "counters"
     (name-of timer) "timers"
     nil))
-
-(defn- parse-long [n]
-  (when (not (nil? n)) (Long/parseLong n)))
 
 (defn- extract-tags [value]
   (when (seq value) (into #{} (string/split value #","))))
@@ -122,25 +120,25 @@
           (std-response :no-content))
         (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] 
     [log-id metric-type metric-id tags age from to]
       (if-let [metric-type (type-of metric-type)]
-        (if-let [result (read-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to))]
+        (if-let [result (read-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))]
           (cors-response :ok result)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+" :percentiles #"[\d|,]+"] 
+  (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :percentiles #"[\d|,]+"] 
     [log-id metric-type metric-id tags age from to percentiles]
       (if-let [metric-type (type-of metric-type)]
-        (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
+        (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
           (cors-response :ok result)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
-  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :age #"\d+" :from #"\d+" :to #"\d+"] 
+  (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] 
     [log-id metric-type metric-id tags age from to]
       (if-let [metric-type (type-of metric-type)]
         (do
-          (remove-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (parse-long age) (parse-long from) (parse-long to))
+          (remove-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))
           (std-response :no-content))
         (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
