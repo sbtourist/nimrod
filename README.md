@@ -1,4 +1,4 @@
-# Nimrod 0.6
+# Nimrod 0.6 (WORK-IN-PROGRESS)
 
 Nimrod is a metrics server purely based on log processing: hence, it doesn't affect the way you write your applications, nor has it any side effect on them.
 In other words, for those of you who love the bullet points:
