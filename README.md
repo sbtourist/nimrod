@@ -1,4 +1,4 @@
-# Nimrod 0.5
+# Nimrod 0.6
 
 Nimrod is a metrics server purely based on log processing: hence, it doesn't affect the way you write your applications, nor has it any side effect on them.
 In other words, for those of you who love the bullet points:
@@ -9,9 +9,9 @@ In other words, for those of you who love the bullet points:
 
 It currently provides the following features:
 
-* Continuous logs processing for metrics extraction.
+* Continuous log processing and metrics extraction.
 * Different types of metrics with fundamental statistical information, time-series history, and (optional) random sampling.
-* Web-based, Javascript-friendly JSON-over-HTTP server, with default support for Cross Origin Resource Sharing on GET requests.
+* Web-based, Javascript-friendly JSON-over-HTTP server, with basic support for Cross Origin Resource Sharing on GET requests.
 
 # Metrics
 
@@ -36,14 +36,14 @@ Metrics must be printed in a Nimrod-specific format, providing the following inf
 Here's an example, without tags:
 
     [nimrod][123456789][counter][players][100]
+    
+And with tags:
+
+    [nimrod][123456789][counter][players][100][game_code:123,game_name:poker]
 
 But you can also interleave whatever you want between Nimrod-specific values, in order to make your logs more human-friendly:
 
     [nimrod][123456789][counter] - Current number of [players] is: [100]
-
-And with tags:
-
-    [nimrod][123456789][counter][players][100][game_code:123,game_name:poker]
 
 ## Alerts
 
@@ -124,7 +124,7 @@ values will be sampled and reduced to 1000, while the latest ones will be fully 
 
 ## Download/Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.6-standalone.jar).
 
 Otherwise, you can check it out and build from source yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
@@ -135,9 +135,9 @@ Once you have Leiningen installed, it is as easy as:
 ## Configuration
 
 Nimrod can be configured by creating and editing a *nimrod.conf* file placed in the same directory where you start the Nimrod process; it is based on the
-[HOCON](https://github.com/typesafehub/config) format.
+[HOCON](https://github.com/typesafehub/config) format, kind of JSON but even easier for people to write.
 
-You can pre-register log files to process and configure the metrics storage implementation.
+You can pre-register log files to process, configure the metrics server and storage.
 
 Logs can be pre-registered at startup by providing a *logs* block and a nested block for every log, identified by a unique name, as follows:
 
@@ -181,15 +181,28 @@ and the metric type (i.e. log1.gauge), or for a specific named metric of a given
 and the metric type followed by a dot and the metric name (i.e. log1.gauge.requests).
 * "metric.factor" (quoting is mandatory): sampling factor for metrics, defined in the same way as metric.frequency.
 
+
+Finally, the http server can be configured with the following options:
+
+    server {
+        port : http_server_port
+        max-busy-requests : max_number_of_concurrent_requests_after_which_server_returns_503
+    } 
+    
+More specifically:
+
+* port: the port the http server listens to (mandatory).
+* max-busy-requests: the max number of concurrent busy requests allowed by the server prior to returning "service unavailable" (503 HTTP status code); this is an advanced configuration option to be used to prevent flooding the server with long-running requests (optional).
+
 ## Startup
 
-The Nimrod metrics server can be easily started as follows (replace "version" with the actual Nimrod version and "8000" with you port of choice):
+The Nimrod metrics server can be easily started as follows:
 
-    $> java -cp nimrod-version-standalone.jar nimrod.web.startup 8000
+    $> java -cp nimrod-version-standalone.jar nimrod.core.startup
 
-This will start the Nimrod web server and log processing activity.
+This will start the Nimrod http server and the log processing threads.
 
-Please note that Nimrod must be started on the same machine hosting the logs, in order to listen to and process them.
+Please note Nimrod must be started on the same machine hosting the logs (either where they originated or where they have been moved to by tools like Syslog), in order to listen to and process them.
 
 ## Log files querying and management
 
@@ -207,7 +220,7 @@ You can query all active metric types for a given log as follows:
 
     GET /logs/log_id
 
-Once you have the metric type, you can query all actual metrics under that log and metric type, as follows:
+Once you have the metric type, you can query all actual metrics under that log and metric type:
 
     GET /logs/log_id/metric_type
 
@@ -217,7 +230,7 @@ Once you have a grasp of available Nimrod metrics by logs and types, specific Ni
 
 Here, *metric_id* is the name of the specific metric you want to read.
 
-You will always get the latest metric value, but you can also access its time-series history as follows:
+You will always get the latest metric value, but you can also access its time-series history:
 
     GET /logs/log_id/metric_type/metric_id/history
 
@@ -225,13 +238,15 @@ Nimrod also provides a selection of rich APIs for querying and managing the time
 
 You can browse through the history by age:
 
-    GET /logs/log_id/metric_type/metric_id/history?age=max_age_in_millis
+    GET /logs/log_id/metric_type/metric_id/history?age=max_allowed_age
 
 Or time interval:
 
-    GET /logs/log_id/metric_type/metric_id/history?from=unix_time_in_millis&to=unix_time_in_millis
+    GET /logs/log_id/metric_type/metric_id/history?from=start_time&to=end_time
 
-And also use tags for filtering the results:
+Here, *max_allowed_age* represents the maximum age for the metrics to be returned in the history: it can be expressed in milliseconds time, or with a human-friendly time expression such as *1d*. Also, *start_time* and *end_time*, representing the time interval for history metrics, can be expressed similarly with either the unix time in milliseconds, or a human-friendly time expression such as *1d.ago*. Time expressions are composed by the number of time units (*1*) and the actual time unit (either *d* for days, *h* for hours, *m* for minutes, *s* for seconds), plus the *.ago* fixed string for the *from/to* interval parameters.
+
+You can also use tags for filtering history results:
 
     GET /logs/log_id/metric_type/metric_id/history?tags=comma_separated_list_of_tags
 
@@ -239,24 +254,26 @@ Tags filtering can be used with both age and interval based queries.
 
 History can be "pruned" by deleting values whose latest update happened before a given number of milliseconds:
 
-    POST /logs/log_id/metric_type/metric_id/history/delete?age=millis
+    POST /logs/log_id/metric_type/metric_id/history/delete?age=max_allowed_age
 
 Or by specifying a time interval:
 
-    POST /logs/log_id/metric_type/metric_id/history/delete?from=unix_time_in_millis&to=unix_time_in_millis
+    POST /logs/log_id/metric_type/metric_id/history/delete?from=start_time&to=end_time
 
 History can also be aggregated, providing the following summary statistics: count, median and percentiles. 
 Aggregation happens by again specifying the max age:
 
-    GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_age_in_millis
+    GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_allowed_age
 
 Or time interval:
 
-    GET /logs/log_id/metric_type/metric_id/history/aggregate?from=unix_time_in_millis&to=unix_time_in_millis
+    GET /logs/log_id/metric_type/metric_id/history/aggregate?from=start_time&to=end_time
 
 Desired percentiles can also be specified as follows:
 
     GET /logs/log_id/metric_type/metric_id/history/aggregate?percentiles=comma_separated_list_of_percentages_ie_25,50,99
+
+Same rules as before apply for time parameters in history removal and aggregation: they can be specified either in milliseconds or time expressions. 
 
 Finally, metrics can be reset as follows:
 
