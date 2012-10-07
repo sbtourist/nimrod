@@ -141,14 +141,18 @@
 
   (remove-metric [this metric-ns metric-type metric-id]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
-    (sql/with-connection connection-factory 
-      (sql/transaction 
-        (sql/delete-rows 
-          "metrics" 
-          ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id])))
-    (dosync
-      (if-let [metrics (get-in @memory [metric-ns metric-type])]
-        (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id)))))
+    (if (get-in @memory [metric-ns metric-type metric-id])
+      (do
+        (sql/with-connection connection-factory 
+          (sql/transaction 
+            (sql/delete-rows 
+              "metrics" 
+              ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id])))
+        (dosync
+          (when-let [metrics (get-in @memory [metric-ns metric-type])]
+            (alter memory assoc-in [metric-ns metric-type] (dissoc metrics metric-id))))
+        true) 
+      false))
 
   (read-metric [this metric-ns metric-type metric-id]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
@@ -184,26 +188,29 @@
 
   (remove-history [this metric-ns metric-type metric-id tags age from to]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
-    (let 
-      [now (clock)
-      actual-from (or from 0) 
-      actual-to (if (nil? to) (- now (or age default-age)) to)]
-      (sql/with-connection connection-factory 
-        (let 
-          [timestamps 
-          (sql/transaction 
-           (sql/with-query-results r
-             ["SELECT MIN(timestamp) AS mints, MAX(timestamp) AS maxts FROM history WHERE ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
-             (first r)))
-          min-timestamp (max (timestamps :mints) actual-from)
-          max-timestamp (min (timestamps :maxts) actual-to)]
-          (loop [upbound (min (+ min-timestamp (days 1)) max-timestamp)]
+    (if (get-in @memory [metric-ns metric-type metric-id])
+      (let 
+        [now (clock)
+        actual-from (or from 0) 
+        actual-to (if (nil? to) (- now (or age default-age)) to)]
+        (sql/with-connection connection-factory 
+          (let 
+            [timestamps 
             (sql/transaction 
-              (sql/delete-rows "history" 
-                ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<? AND check_tags(metric, ?)"
-                metric-ns metric-type metric-id min-timestamp upbound (string/join "," tags)]))
-            (when (< upbound max-timestamp)
-              (recur (min (+ upbound (days 1)) max-timestamp))))))))
+             (sql/with-query-results r
+               ["SELECT MIN(timestamp) AS mints, MAX(timestamp) AS maxts FROM history WHERE ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
+               (first r)))
+            min-timestamp (max (timestamps :mints) actual-from)
+            max-timestamp (min (timestamps :maxts) actual-to)]
+            (loop [upbound (min (+ min-timestamp (days 1)) max-timestamp)]
+              (sql/transaction 
+                (sql/delete-rows "history" 
+                  ["ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<? AND check_tags(metric, ?)"
+                  metric-ns metric-type metric-id min-timestamp upbound (string/join "," tags)]))
+              (when (< upbound max-timestamp)
+                (recur (min (+ upbound (days 1)) max-timestamp))))))
+        true) 
+      false))
 
   (aggregate-history [this metric-ns metric-type metric-id tags age from to aggregators]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
@@ -241,7 +248,7 @@
         (sql/with-query-results 
           all-types
           ["SELECT type FROM metrics WHERE ns=? GROUP BY type ORDER BY type" metric-ns]
-          (into [] (for [type all-types] (type :type)))))))
+          (when (seq all-types) (into [] (for [type all-types] (type :type))))))))
 
   (stats [this]
     (show-stats [[:operations-per-second]] (clock) (seconds 1))))

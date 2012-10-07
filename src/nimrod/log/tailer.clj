@@ -34,7 +34,7 @@
 
 (defn start-tailer [id log interval end]
   (let [tailer (create-tailer id log interval end)]
-    (if end (log/info (str "Start processing log from end: " log)) (log/info (str "Start processing log from beginning: " log)))
+    (if end (log/info (str "Start processing log from end of file: " log)) (log/info (str "Start processing log from start of file: " log)))
     (dosync
       (if (contains? @tailers id)
         (throw (IllegalStateException. (str "Duplicated log identifier: " id)))
@@ -44,16 +44,12 @@
     id))
 
 (defn stop-tailer [id]
-  (let [tailer (ref nil)]
-    (dosync
-      (if (@tailers id)
-        (do
-          (ref-set tailer (@tailers id))
-          (alter tailers dissoc id))
-        (throw (IllegalStateException. (str "No tailer for id: " id)))))
-    (if @tailer
-      (.stop (@tailer :tailer))
-      (log/info (str "Stop listening to log: " (@tailer :log))))))
+  (if-let [tailer (@tailers id)]
+    (do 
+      (.stop (tailer :tailer))
+      (log/info (str "Stop processing log: " (tailer :log)))
+      true) 
+    false))
 
 (defn list-tailers []
   (into (sorted-map)

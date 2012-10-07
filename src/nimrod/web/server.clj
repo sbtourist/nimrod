@@ -91,17 +91,20 @@
   (http/GET "/logs/" [:as request]
     (redirect-response (drop-last-char (request :uri))))
   (http/GET "/logs/:log-id" [log-id]
-      (std-response :ok (map path-of (list-types @metrics-store log-id))))
+    (if-let [types (list-types @metrics-store log-id)]
+      (cors-response :ok (map path-of types))
+      (cors-response :not-found)))
   (http/GET "/logs/:log-id/" [:as request]
     (redirect-response (drop-last-char (request :uri))))
   (http/POST "/logs/:log-id/stop" [log-id]
-    (stop-tailer log-id)
-    (std-response :no-content))
+    (if (stop-tailer log-id)
+      (std-response :no-content)
+      (std-response :not-found)))
   
   (http/GET ["/logs/:log-id/:metric-type"] [log-id metric-type]
       (if-let [metric-type (type-of metric-type)]
-        (if-let [result (list-metrics @metrics-store log-id metric-type)]
-          (cors-response :ok result)
+        (if-let [metrics (list-metrics @metrics-store log-id metric-type)]
+          (cors-response :ok metrics)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/GET ["/logs/:log-id/:metric-type/"] [log-id metric-type :as request]
@@ -115,9 +118,9 @@
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/reset" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
       (if-let [metric-type (type-of metric-type)]
-        (do 
-          (remove-metric @metrics-store log-id metric-type metric-id)
-          (std-response :no-content))
+        (if (remove-metric @metrics-store log-id metric-type metric-id)
+          (std-response :no-content)
+          (std-response :not-found))
         (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] 
@@ -137,9 +140,9 @@
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] 
     [log-id metric-type metric-id tags age from to]
       (if-let [metric-type (type-of metric-type)]
-        (do
-          (remove-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))
-          (std-response :no-content))
+        (if (remove-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))
+          (std-response :no-content)
+          (std-response :not-found))
         (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   (route/not-found ""))
