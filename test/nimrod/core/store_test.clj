@@ -250,7 +250,7 @@
   (let [metric-ns "1" metric-type "gauge" metric-id "1" metric {:value 1 :timestamp 1}]
     (set-metric store metric-ns metric-type metric-id metric 1)
     (remove-metric store metric-ns metric-type metric-id)
-    (is (= [] (list-types store metric-ns)))))
+    (is (nil? (list-types store metric-ns)))))
 
 (defn post-init [store]
   (let [metric-ns-1 "1" metric-ns-2 "2" metric-type-1 "counter" metric-type-2 "gauge" metric-id-1 "1" metric-id-2 "2"
