@@ -221,25 +221,28 @@
           [now (clock)
           actual-from (if (nil? from) (- now (or age default-age)) from)
           actual-to (or to now)
-          total (sql/with-query-results total-results
-            ["SELECT COUNT(*) AS total FROM history WHERE ns=? AND type=? AND id=? AND timestamp>=? AND timestamp<=? AND check_tags(metric, ?)" 
-            metric-ns metric-type metric-id actual-from actual-to (string/join "," tags)]
-            ((first total-results) :total))
           query (sql/prepare-statement 
             (sql/connection) 
             (str "SELECT metric, aggregation FROM history WHERE ns='" metric-ns "' AND type='" metric-type "' AND id='" metric-id "' AND timestamp>=" actual-from " AND timestamp<=" actual-to " AND check_tags(metric,'" (string/join "," tags) "') ORDER BY aggregation ASC") 
             :concurrency :read-only :result-type :scroll-insensitive :fetch-size 1)
           rs (.executeQuery query)]
           (when (.first rs)
+            (.beforeFirst rs)
+            (let [
+              count-mean-variance-array (count-mean-variance #(when (.next rs) (.getDouble rs 2)))
+              total (count-mean-variance-array 0)
+              mean (count-mean-variance-array 1)
+              variance (count-mean-variance-array 2)
+              med (median total #(when (.absolute rs %1) (.getDouble rs 2)))
+              perc (percentiles total (aggregators :percentiles) #(when (.absolute rs %1) (to-json-map (.getBytes rs 1))))]
             {:time 
              {:from (date-to-string actual-from) :to (date-to-string actual-to)}
-             :count 
-             total
-             :median
-             (median total #(when (.absolute rs %1) (.getDouble rs 2)))
-             :percentiles
-             (percentiles total (aggregators :percentiles) #(when (.absolute rs %1) (to-json-map (.getBytes rs 1))))
-             })))))
+             :count total
+             :mean mean
+             :variance variance
+             :median med
+             :percentiles perc
+             }))))))
 
   (list-types [this metric-ns]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))

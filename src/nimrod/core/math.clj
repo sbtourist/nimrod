@@ -1,15 +1,28 @@
 (ns nimrod.core.math
  (:require [nimrod.core.util :as util]))
 
-(defn mean [samples previous-mean value]
-  (if (> samples 0)
-    (util/unrationalize (+ previous-mean (/ (- value previous-mean) samples)))
-    0))
+(defn exp-average [t1 t2 value avg]
+  (let [
+    elapsed (- t2 t1)
+    exp-1 (Math/exp (* -1 (/ elapsed (* 1000 60))))
+    exp-5 (Math/exp (* -1 (/ elapsed (* 1000 60 5))))
+    exp-15 (Math/exp (* -1 (/ elapsed (* 1000 60 15))))]
+    [
+    (+ (* avg exp-1) (* value (- 1 exp-1)))
+    (+ (* avg exp-5) (* value (- 1 exp-5)))
+    (+ (* avg exp-15) (* value (- 1 exp-15)))
+    ]))
 
-(defn variance [samples previous-variance previous-mean current-mean value]
-  (if (> samples 1)
-    (util/unrationalize (/ (+ previous-variance (* (- value previous-mean) (- value current-mean))) (dec samples)))
-    0))
+(defn count-mean-variance [read-fn]
+  (loop [sample 1 mean 0 variance 0]
+    (if-let [current-value (read-fn)]
+      (let [
+        current-mean (+ mean (/ (- current-value mean) sample))
+        current-variance (+ variance (* (- current-value mean) (- current-value current-mean)))]
+        (recur (inc sample) current-mean current-variance))
+      [(dec sample)
+      (util/unrationalize mean) 
+      (if (<= sample 2) 0 (util/unrationalize (/ variance (- sample 2))))])))
 
 (defn median [total read-fn]
   (if (odd? total)

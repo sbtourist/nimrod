@@ -172,6 +172,8 @@
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id #{} Long/MAX_VALUE nil nil {:percentiles [50]})]
         (is (= 3 (aggregate :count)))
+        (is (= 2.0 (aggregate :mean)))
+        (is (= 1.0 (aggregate :variance)))
         (is (= 2.0 (aggregate :median)))
         (is (= {:50th metric-2} (aggregate :percentiles)))))))
 
@@ -186,6 +188,8 @@
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id #{"t"} Long/MAX_VALUE nil nil {:percentiles [50]})]
         (is (= 2 (aggregate :count)))
+        (is (= 1.5 (aggregate :mean)))
+        (is (= 0.5 (aggregate :variance)))
         (is (= 1.5 (aggregate :median)))
         (is (= {:50th metric-2} (aggregate :percentiles)))))))
 
@@ -200,6 +204,8 @@
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id #{} nil 1 2 {:percentiles [50]})]
         (is (= 2 (aggregate :count)))
+        (is (= 1.5 (aggregate :mean)))
+        (is (= 0.5 (aggregate :variance)))
         (is (= 1.5 (aggregate :median)))
         (is (= {:50th metric-2} (aggregate :percentiles)))))))
 
@@ -214,6 +220,8 @@
     (testing "Metric history aggregation"
       (let [aggregate (aggregate-history store metric-ns metric-type metric-id #{} 1000 nil nil {:percentiles [50]})]
         (is (= 1 (aggregate :count)))
+        (is (= 3.0 (aggregate :mean)))
+        (is (= 0 (aggregate :variance)))
         (is (= 3.0 (aggregate :median)))
         (is (= {:50th metric-3} (aggregate :percentiles)))))))
 

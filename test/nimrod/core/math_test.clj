@@ -3,16 +3,17 @@
    [clojure.test]
    [nimrod.core.math]))
 
-(deftest compute-mean
-  (is (= 1 (mean 1 0 1)))
-  (is (= 2 (mean 2  1 3)))
-  (is (= 3 (mean 3  2 5))))
-
-(deftest compute-variance
-  (is (= 0 (variance 1 0 0 0 2)))
-  (is (= 0 (variance 2 0 0 2 2)))
-  (is (= 0 (variance 3 0 2 2 2)))
-  (is (= 4 (variance 4 0 2 3 6))))
+(deftest compute-count-mean-variance
+  (testing "count-mean-variance with 1 value"
+    (let [idx (atom -1) cmv (count-mean-variance #(get [1] (swap! idx inc)))]
+      (is (= 1 (cmv 0)))
+      (is (= 1 (cmv 1)))
+      (is (= 0 (cmv 2)))))
+  (testing "count-mean-variance with many values"
+    (let [idx (atom -1) cmv (count-mean-variance #(get [1 2 3 4 5 6 7 8] (swap! idx inc)))]
+      (is (= 8 (cmv 0)))
+      (is (= 4.5 (cmv 1)))
+      (is (= 6 (cmv 2))))))
 
 (deftest compute-percentiles
   (is (= {:50th 3 :75th 4} (percentiles 5 [50 75] #(nth [1 2 3 4 5] (dec %1))))))
