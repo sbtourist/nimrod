@@ -1,18 +1,6 @@
 (ns nimrod.core.math
  (:require [nimrod.core.util :as util]))
 
-(defn ewma [t1 t2 value avgs]
-  (let [
-    elapsed (- t2 t1)
-    exp-1 (Math/exp (* -1 (/ elapsed (* 1000 60))))
-    exp-5 (Math/exp (* -1 (/ elapsed (* 1000 60 5))))
-    exp-15 (Math/exp (* -1 (/ elapsed (* 1000 60 15))))]
-    [
-    (+ (* (avgs 0) exp-1) (* value (- 1 exp-1)))
-    (+ (* (avgs 1) exp-5) (* value (- 1 exp-5)))
-    (+ (* (avgs 2) exp-15) (* value (- 1 exp-15)))
-    ]))
-
 (defn count-mean-variance [read-fn]
   (loop [sample 1 mean 0 variance 0]
     (if-let [current-value (read-fn)]
