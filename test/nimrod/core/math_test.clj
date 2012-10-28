@@ -3,6 +3,9 @@
    [clojure.test]
    [nimrod.core.math]))
 
+(deftest test-ewma
+  (println (ewma 5000 10000 1000 [150 120 100])))
+
 (deftest compute-count-mean-variance
   (testing "count-mean-variance with 1 value"
     (let [idx (atom -1) cmv (count-mean-variance #(get [1] (swap! idx inc)))]
