@@ -272,14 +272,14 @@
         "hsqldb.cache_size=" cache-entries))
        (.setUser "SA")
        (.setPassword ""))
-      store (DiskStore. {:datasource pool} (ref nil) options sampling)]
+      disk-store (DiskStore. {:datasource pool} (ref nil) options sampling)]
       (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool 1))))
-      (init store)
-      store))
+      (init disk-store)
+      disk-store))
   ([path options] (new-disk-store path options {}))
   ([path] (new-disk-store path {} {})))
 
-(defonce metrics-store (atom nil))
+(defonce store (atom nil))
 
-(defn setup-metric-store [store]
-  (reset! metrics-store store))
+(defn start-store [s]
+  (reset! store s))

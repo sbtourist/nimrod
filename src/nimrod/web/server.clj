@@ -23,20 +23,20 @@
 
 (defonce max-busy-requests (atom 10)) 
 
-(defn- type-of [metric-path]
+(defn- get-type [metric-path]
   (condp = metric-path
-    "alerts" (name-of alert)
-    "gauges" (name-of gauge)
-    "counters" (name-of counter)
-    "timers" (name-of timer)
+    "alerts" alert-type
+    "gauges" gauge-type
+    "counters" counter-type
+    "timers" timer-type
     nil))
 
-(defn- path-of [metric-type]
+(defn- get-path [metric-type]
   (condp = metric-type
-    (name-of alert) "alerts"
-    (name-of gauge) "gauges"
-    (name-of counter) "counters"
-    (name-of timer) "timers"
+    alert-type "alerts"
+    gauge-type "gauges"
+    counter-type "counters"
+    timer-type "timers"
     nil))
 
 (defn- extract-tags [value]
@@ -84,15 +84,15 @@
   (http/GET "/system/stats" []
     (cors-response :ok {
       :logs (show-tail-stats)
-      :store (stats @metrics-store)}))
+      :store (stats @store)}))
   
   (http/GET "/logs" []
     (cors-response :ok (list-tailers)))
   (http/GET "/logs/" [:as request]
     (redirect-response (drop-last-char (request :uri))))
   (http/GET "/logs/:log-id" [log-id]
-    (if-let [types (list-types @metrics-store log-id)]
-      (cors-response :ok (map path-of types))
+    (if-let [types (list-types @store log-id)]
+      (cors-response :ok (map get-path types))
       (cors-response :not-found)))
   (http/GET "/logs/:log-id/" [:as request]
     (redirect-response (drop-last-char (request :uri))))
@@ -102,8 +102,8 @@
       (std-response :not-found)))
   
   (http/GET ["/logs/:log-id/:metric-type"] [log-id metric-type]
-      (if-let [metric-type (type-of metric-type)]
-        (if-let [metrics (list-metrics @metrics-store log-id metric-type)]
+      (if-let [metric-type (get-type metric-type)]
+        (if-let [metrics (list-metrics @store log-id metric-type)]
           (cors-response :ok metrics)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
@@ -111,36 +111,36 @@
     (redirect-response (drop-last-char (request :uri))))
   
   (http/GET ["/logs/:log-id/:metric-type/:metric-id" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-      (if-let [metric-type (type-of metric-type)]
-        (if-let [result (read-metric @metrics-store log-id metric-type metric-id)]
+      (if-let [metric-type (get-type metric-type)]
+        (if-let [result (read-metric @store log-id metric-type metric-id)]
           (cors-response :ok result)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/reset" :metric-id #"[^/?#]+"] [log-id metric-type metric-id]
-      (if-let [metric-type (type-of metric-type)]
-        (if (remove-metric @metrics-store log-id metric-type metric-id)
+      (if-let [metric-type (get-type metric-type)]
+        (if (remove-metric @store log-id metric-type metric-id)
           (std-response :no-content)
           (std-response :not-found))
         (std-response :error {:error (str "Bad metric type: " metric-type)})))
   
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] 
     [log-id metric-type metric-id tags age from to]
-      (if-let [metric-type (type-of metric-type)]
-        (if-let [result (read-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))]
+      (if-let [metric-type (get-type metric-type)]
+        (if-let [result (read-history @store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))]
           (cors-response :ok result)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/GET ["/logs/:log-id/:metric-type/:metric-id/history/aggregate" :metric-id #"[^/?#]+" :tags #"[^/?#]+" :percentiles #"[\d|,]+"] 
     [log-id metric-type metric-id tags age from to percentiles]
-      (if-let [metric-type (type-of metric-type)]
-        (if-let [result (aggregate-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
+      (if-let [metric-type (get-type metric-type)]
+        (if-let [result (aggregate-history @store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to) {:percentiles (sort (or (extract-ints percentiles) [25 50 75 99]))})]
           (cors-response :ok result)
           (cors-response :not-found))
         (cors-response :error {:error (str "Bad metric type: " metric-type)})))
   (http/POST ["/logs/:log-id/:metric-type/:metric-id/history/delete" :metric-id #"[^/?#]+" :tags #"[^/?#]+"] 
     [log-id metric-type metric-id tags age from to]
-      (if-let [metric-type (type-of metric-type)]
-        (if (remove-history @metrics-store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))
+      (if-let [metric-type (get-type metric-type)]
+        (if (remove-history @store log-id metric-type metric-id (or (extract-tags tags) #{}) (age-to-millis age) (time-to-millis (clock) from) (time-to-millis (clock) to))
           (std-response :no-content)
           (std-response :not-found))
         (std-response :error {:error (str "Bad metric type: " metric-type)})))

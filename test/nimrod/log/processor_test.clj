@@ -5,14 +5,15 @@
    [nimrod.log.processor]))
 
 (defonce test-metric (atom nil))
-(defn test-compute-metric [type metric-ns metric-id timestamp value tags]
-  (reset! test-metric {:type type :log metric-ns :name metric-id :timestamp timestamp :value value :tags tags}))
+
+(defn test-compute-metric [metric-ns metric-type metric-id timestamp value tags]
+  (reset! test-metric {:type metric-type :log metric-ns :name metric-id :timestamp timestamp :value value :tags tags}))
 
 (deftest process-log-line
   (testing "Process full log line"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
       (is (= true (process "log" "[nimrod][1][alert][name][value][tag1,tag2]")))
-      (is (= alert (@test-metric :type)))
+      (is (= alert-type (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
       (is (= "name" (@test-metric :name)))
@@ -22,7 +23,7 @@
   (testing "Process full log line with nested square brackets"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
       (is (= true (process "log" "[nimrod][1][alert][name][value][[nested],[tag]]")))
-      (is (= alert (@test-metric :type)))
+      (is (= alert-type (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
       (is (= "name" (@test-metric :name)))
@@ -32,7 +33,7 @@
   (testing "Process full log line with interleaved text"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
       (is (= true (process "log" "this[nimrod]is[1]an[alert]interleaved[name]text[value]string[tag1,tag2]!")))
-      (is (= alert (@test-metric :type)))
+      (is (= alert-type (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
       (is (= "name" (@test-metric :name)))
@@ -42,7 +43,7 @@
   (testing "Process log line with no tags"
     (with-redefs [nimrod.core.metric/compute-metric test-compute-metric]
       (is (= true (process "log" "[nimrod][1][alert][name][value]")))
-      (is (= alert (@test-metric :type)))
+      (is (= alert-type (@test-metric :type)))
       (is (= "log" (@test-metric :log)))
       (is (= "1" (@test-metric :timestamp)))
       (is (= "name" (@test-metric :name)))

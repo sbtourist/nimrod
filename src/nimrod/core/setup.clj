@@ -18,7 +18,7 @@
     options (into {} (.get store "options"))
     sampling (into {} (.get store "sampling"))]
     (condp = (store "type")
-      "disk" (setup-metric-store (new-disk-store "nimrod-data/db" options sampling))
+      "disk" (start-store (new-disk-store "nimrod-data/db" options sampling))
       (throw (IllegalStateException. (str "Bad store configuration: " (store "type")))))))
 
 (defn- setup-server [conf]

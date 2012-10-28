@@ -10,12 +10,12 @@
 (defonce log-pattern (re-pattern ".*?\\[nimrod\\].*?\\[(\\d+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*?\\[(.*)\\].*"))
 (defonce no-tags-log-pattern (re-pattern ".*?\\[nimrod\\].*?\\[(\\d+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*?\\[(.+?)\\].*"))
 
-(defn- type-of [metric]
+(defn- get-type [metric]
   (condp = metric
-    "alert" alert
-    "gauge" gauge
-    "counter" counter
-    "timer" timer
+    "alert" alert-type
+    "gauge" gauge-type
+    "counter" counter-type
+    "timer" timer-type
     nil))
 
 (defn- split-match [match r]
@@ -33,8 +33,8 @@
 (defn process [log line]
   (try
     (if-let [extracted (extract line)]
-      (if-let [metric (type-of (extracted :metric))]
-        (do (compute-metric metric log (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags)) true)
+      (if-let [metric-type (get-type (extracted :metric))]
+        (do (compute-metric log metric-type (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags)) true)
         (do (log/warn (str "No metric with name: " (extracted :metric))) false))
       false)
     (catch Exception ex (do (log/error (.getMessage ex) ex) false))))

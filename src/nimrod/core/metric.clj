@@ -8,108 +8,124 @@
  (:import [java.util.concurrent ArrayBlockingQueue]))
 
 (defprotocol MetricType
-  (name-of [this])
-  (aggregation-value-of [this metric])
-  (compute [this id timestamp current-value new-value tags]))
+  (type-of [this])
+  (value-of [this])
+  (aggregation-value-of [this])
+  (compute [this id timestamp metric tags]))
 
-(deftype Alert []
+(defonce alert-type "nimrod.core.metric.Alert")
+(defonce gauge-type "nimrod.core.metric.Gauge")
+(defonce counter-type "nimrod.core.metric.Counter")
+(defonce timer-type "nimrod.core.metric.Timer")
+
+(deftype Alert [state]
   MetricType
-  (name-of [this] "nimrod.core.metric.Alert")
-  (aggregation-value-of [this metric] 0)
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) alert new-value]
-      (if-let [current current-value]
-        (let [samples (inc (current :samples))]
-          (conj current 
-            {:timestamp new-time
-             :alert alert
-             :samples samples
-             :tags tags}))
-        {:id id 
-         :timestamp new-time
-         :samples 1
+  (type-of [this] alert-type)
+  (value-of [this] (-> @state 
+    (assoc :systemtime (date-to-string (clock)))))
+  (aggregation-value-of [this] 0)
+  (compute [this id timestamp alert tags]
+    (if-let [current @state]
+      (swap! state conj 
+        {:timestamp (Long/parseLong timestamp)
          :alert alert
-         :tags tags}))))
+         :samples (inc (current :samples))
+         :tags tags})
+      (reset! state {:id id 
+       :timestamp (Long/parseLong timestamp)
+       :samples 1
+       :alert alert
+       :tags tags}))
+    this))
 
-(deftype Gauge []
+(deftype Gauge [state]
   MetricType
-  (name-of [this] "nimrod.core.metric.Gauge")
-  (aggregation-value-of [this metric] (metric :gauge))
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) gauge (Long/parseLong new-value)]
-      (if-let [current current-value]
-        (let 
-          [samples (inc (current :samples))]
-          (conj current 
-            {:timestamp new-time
-             :gauge gauge
-             :samples samples
-             :tags tags}))
-        {:id id
-         :timestamp new-time
-         :gauge gauge
-         :samples 1
-         :tags tags}))))
+  (type-of [this] gauge-type)
+  (value-of [this] (-> @state 
+    (assoc :systemtime (date-to-string (clock)))))
+  (aggregation-value-of [this] (@state :gauge))
+  (compute [this id timestamp gauge tags]
+    (if-let [current @state]
+      (swap! state conj
+        {:timestamp (Long/parseLong timestamp)
+         :gauge (Long/parseLong gauge)
+         :samples (inc (current :samples))
+         :tags tags})
+      (reset! state {:id id
+       :timestamp (Long/parseLong timestamp)
+       :gauge (Long/parseLong gauge)
+       :samples 1
+       :tags tags}))
+    this))
 
-(deftype Counter []
+(deftype Counter [state]
   MetricType
-  (name-of [this] "nimrod.core.metric.Counter")
-  (aggregation-value-of [this metric] (metric :counter))
-  (compute [this id timestamp current-value new-value tags]
-    (let [new-time (Long/parseLong timestamp) increment (Long/parseLong new-value)]
-      (if-let [current current-value]
+  (type-of [this] counter-type)
+  (value-of [this] (-> @state 
+    (assoc :systemtime (date-to-string (clock)))))
+  (aggregation-value-of [this] (@state :counter))
+  (compute [this id timestamp increment tags]
+    (let [increment (Long/parseLong increment)]
+      (if-let [current @state]
         (let 
           [samples (inc (current :samples))
           previous-counter (current :counter)]
-          (conj current 
-            {:timestamp new-time
+          (swap! state conj 
+            {:timestamp (Long/parseLong timestamp)
              :counter (+ previous-counter increment)
              :samples samples
              :latest-increment increment
              :tags tags}))
-        {:id id
-         :timestamp new-time
+        (reset! state {:id id
+         :timestamp (Long/parseLong timestamp)
          :counter increment
          :samples 1
          :latest-increment increment
-         :tags tags}))))
+         :tags tags})))
+    this))
 
-  (deftype Timer []
-    MetricType
-    (name-of [this] "nimrod.core.metric.Timer")
-    (aggregation-value-of [this metric] (metric :elapsed-time))
-    (compute [this id timestamp current-value new-value tags]
-      (let [new-time (Long/parseLong timestamp) timer new-time action new-value]
-        (if-let [current current-value]
-          (cond
-            (= "start" action)
-            (conj current {:timestamp new-time :start timer :end 0 :elapsed-time 0 :tags tags})
-            (= "stop" action)
-            (let 
-              [start (current :start)
-              samples (inc (current :samples))
-              elapsed-time (- timer start)]
-              (conj current 
-                {:timestamp new-time
-                 :end timer
-                 :elapsed-time elapsed-time
-                 :samples samples
-                 :tags tags}))
-            :else (throw (IllegalStateException. (str "Bad timer action: " action))))
-          (if (= "start" action)
-            {:id id :timestamp new-time :start timer :end 0 :elapsed-time 0 :samples 0 :tags tags}
-            (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action))))))))
+(deftype Timer [state]
+  MetricType
+  (type-of [this] timer-type)
+  (value-of [this] (-> @state 
+    (assoc :systemtime (date-to-string (clock)))))
+  (aggregation-value-of [this] (@state :elapsed-time))
+  (compute [this id timestamp action tags]
+    (let [timer (Long/parseLong timestamp)]
+      (if-let [current @state]
+        (cond
+          (= "start" action)
+          (swap! state conj {:timestamp timer :start timer :end 0 :elapsed-time 0 :tags tags})
+          (= "stop" action)
+          (let 
+            [start (current :start)
+            samples (inc (current :samples))
+            elapsed-time (- timer start)]
+            (swap! state conj 
+              {:timestamp timer
+               :end timer
+               :elapsed-time elapsed-time
+               :samples samples
+               :tags tags}))
+          :else (throw (IllegalStateException. (str "Bad timer action: " action))))
+        (if (= "start" action)
+          (reset! state {:id id :timestamp timer :start timer :end 0 :elapsed-time 0 :samples 0 :tags tags})
+          (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action))))))
+    this))
 
-(defonce alert (Alert.))
-(defonce gauge (Gauge.))
-(defonce counter (Counter.))
-(defonce timer (Timer.))
+(defonce metrics (atom {}))
 
-(defn compute-metric [type metric-ns metric-id timestamp value tags]
+(defonce metrics-factory {
+  alert-type #(Alert. (atom %1))
+  gauge-type #(Gauge. (atom %1))
+  counter-type #(Counter. (atom %1))
+  timer-type #(Timer. (atom %1))
+  })
+
+(defn compute-metric [metric-ns metric-type metric-id timestamp value tags]
   (let 
-    [now (clock)
-    current-metric (read-metric @metrics-store metric-ns (name-of type) metric-id)
-    new-metric (assoc (compute type metric-id timestamp current-metric value tags) :systemtime (date-to-string now))]
+    [metric (or (get-in @metrics [metric-ns metric-type metric-id]) ((metrics-factory metric-type) (read-metric @store metric-ns metric-type metric-id)))
+    new-metric-value (value-of (compute metric metric-id timestamp value tags))]
     (try 
-      (set-metric @metrics-store metric-ns (name-of type) metric-id new-metric (aggregation-value-of type new-metric)) 
+      (set-metric @store metric-ns metric-type metric-id new-metric-value (aggregation-value-of metric)) 
       (catch Exception ex (log/error (.getMessage ex) ex)))))
