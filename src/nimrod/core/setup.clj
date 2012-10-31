@@ -15,10 +15,11 @@
 (defn- setup-store [conf]
   (let 
     [store (into {"type" "disk"} (.get conf "store"))
+    path (io/file (or (.get store "path") ".")  "nimrod-data/db")
     options (into {} (.get store "options"))
     sampling (into {} (.get store "sampling"))]
     (condp = (store "type")
-      "disk" (start-store (new-disk-store "nimrod-data/db" options sampling))
+      "disk" (start-store (new-disk-store (.getCanonicalPath path) options sampling))
       (throw (IllegalStateException. (str "Bad store configuration: " (store "type")))))))
 
 (defn- setup-server [conf]

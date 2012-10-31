@@ -18,7 +18,7 @@
   (let [path (atom nil) options (atom nil) sampling (atom nil)]
     (with-redefs [new-disk-store (fn [p o s] (reset! path p) (reset! options o) (reset! sampling s))]
       (setup "test/nimrod2.conf")
-      (is (= "nimrod-data/db" @path))
+      (is (= "/opt/nimrod/nimrod-data/db" @path))
       (is (= {"cache.entries" 1 "cache.results" 2 "defrag.limit" 3} @options))
       (is (= {"test.frequency" 10} @sampling)))))
 

@@ -258,7 +258,7 @@
 
 (defn new-disk-store
   ([path options sampling]
-    (when (seq options) (log/info (str "Starting DiskStore with options: " options)))
+    (when (seq options) (log/info (str "Starting DiskStore logated in " path " with options: " options)))
     (when (seq sampling) (log/info (str "Sampling with: " sampling)))
     (let 
       [defrag-limit (or (options "defrag.limit") default-defrag-limit)
