@@ -292,8 +292,10 @@ Please note that this only resets the latest value, without affecting its histor
 
 # Related Projects
 
-* [Nimrod-Java](https://github.com/sbtourist/nimrod-java)
-* [Nimrod-Incanter](https://github.com/sbtourist/nimrod-incanter)
+* [Java Logging APIs](https://github.com/sbtourist/nimrod-java)
+* [Node.js Logging APIs](https://github.com/Lukewh/nimrod-node)
+* [Incanter-based Analytics](https://github.com/sbtourist/nimrod-incanter)
+* [Nagios integration](https://github.com/mbst/nagios-nimrod)
 
 # Feedback
 
