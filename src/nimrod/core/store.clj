@@ -24,7 +24,7 @@
   (json/generate-smile m))
 
 (defn- to-json-map [v]
-  (json/parse-smile v true (fn [_] #{})))
+  (json/parse-smile v true (fn [field] (if (= "ewma" field) [] #{}))))
 
 (defn- do-sampling? [samples sampling-frequency]
   (and (not (zero? sampling-frequency)) (= samples sampling-frequency)))

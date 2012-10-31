@@ -3,6 +3,30 @@
    [clojure.test]
    [nimrod.core.math]))
 
+(deftest compute-ewma
+  (testing "ewma with 10 values"
+    (let 
+      [ewma1 (ewma nil 1 1000191)
+    ewma2 (ewma ewma1 23 1160000)
+    ewma3 (ewma ewma2 35 1170000)
+    ewma4 (ewma ewma3 41 1180000)
+    ewma5 (ewma ewma4 55 1190000)
+    ewma6 (ewma ewma5 63 1200000)
+    ewma7 (ewma ewma6 60 1200001)
+    ewma8 (ewma ewma7 85 1200200)
+    ewma9 (ewma ewma8 99 1200300)
+    ewma10 (ewma ewma9 100 1200400)]
+    (println ewma1)
+    (println ewma2)
+    (println ewma3)
+    (println ewma4)
+    (println ewma5)
+    (println ewma6)
+    (println ewma7)
+    (println ewma8)
+    (println ewma9)
+    (println ewma10))))
+
 (deftest compute-count-mean-variance
   (testing "count-mean-variance with 1 value"
     (let [idx (atom -1) cmv (count-mean-variance #(get [1] (swap! idx inc)))]

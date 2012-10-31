@@ -1,6 +1,19 @@
 (ns nimrod.core.math
  (:require [nimrod.core.util :as util]))
 
+(defn ewma [ewma-1 value samples]
+  (let 
+    [ewma-1 (or ewma-1 [0 0 0])
+    k-1000 (float (- 1 (/ (mod samples 1000) 1000)))
+    k-10000 (float (- 1 (/ (mod samples 10000) 10000)))
+    k-100000 (float (- 1 (/ (mod samples 100000) 100000)))
+    w-1000 (Math/exp (* -1 (if (< k-1000 1) k-1000 0)))
+    w-10000 (Math/exp (* -1 (if (< k-10000 1) k-10000 0)))
+    w-100000 (Math/exp (* -1 (if (< k-100000 1) k-100000 0)))]
+    [(float (+ (* value w-1000) (* (ewma-1 0) (- 1 w-1000))))
+    (float (+ (* value w-10000) (* (ewma-1 1) (- 1 w-10000))))
+    (float (+ (* value w-100000) (* (ewma-1 2) (- 1 w-100000))))]))
+
 (defn count-mean-variance [read-fn]
   (loop [sample 1 mean 0 variance 0]
     (if-let [current-value (read-fn)]

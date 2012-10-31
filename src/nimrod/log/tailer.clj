@@ -26,7 +26,7 @@
               (update-rate-stats [:processed-metrics-per-second-per-file (keyword id)] now (seconds 1))))))
       (fileNotFound [] (log/error (str "Log file not found: " log)))
       (fileRotated [] (log/info (str "Rotated log file: " log)))
-      (error [obj] (log/error (.getMessage obj) obj))
+      (error [obj] (log/error (.getMessage obj)))
       (stop [] (log/info (str "Stopped tailing file: " log))))
     interval
     end

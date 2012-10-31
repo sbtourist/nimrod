@@ -4,4 +4,4 @@
  (:use [nimrod.core.setup]))
 
 (defn -main []
-  (try (setup "nimrod.conf") (catch Exception ex (log/error (.getMessage ex)))))
+  (try (setup "nimrod.conf") (catch Exception ex (log/error ex (.getMessage ex)))))

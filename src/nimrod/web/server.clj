@@ -70,7 +70,7 @@
     (try
       (handler req)
       (catch Exception ex
-        (log/error (.getMessage ex) ex)
+        (log/error ex (.getMessage ex))
         (std-response :error {:error (.getMessage ex)})))))
 
 (defn- wrap-circuit-breaker [handler]

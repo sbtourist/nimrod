@@ -45,18 +45,22 @@
     (assoc :systemtime (date-to-string (clock)))))
   (aggregation-value-of [this] (@state :gauge))
   (compute [this id timestamp gauge tags]
-    (if-let [current @state]
-      (swap! state conj
-        {:timestamp (Long/parseLong timestamp)
-         :gauge (Long/parseLong gauge)
-         :samples (inc (current :samples))
-         :tags tags})
-      (reset! state {:id id
-       :timestamp (Long/parseLong timestamp)
-       :gauge (Long/parseLong gauge)
-       :samples 1
-       :tags tags}))
-    this))
+    (let [gauge (Long/parseLong gauge)]
+      (if-let [current @state]
+        (let [samples (inc (current :samples))]
+        (swap! state conj
+          {:timestamp (Long/parseLong timestamp)
+           :gauge gauge
+           :ewma (ewma (current :ewma) gauge samples)
+           :samples samples
+           :tags tags}))
+        (reset! state {:id id
+         :timestamp (Long/parseLong timestamp)
+         :gauge gauge
+         :ewma nil
+         :samples 1
+         :tags tags}))
+      this)))
 
 (deftype Counter [state]
   MetricType
@@ -69,16 +73,19 @@
       (if-let [current @state]
         (let 
           [samples (inc (current :samples))
-          previous-counter (current :counter)]
+          previous-counter (current :counter)
+          counter (+ previous-counter increment)]
           (swap! state conj 
             {:timestamp (Long/parseLong timestamp)
-             :counter (+ previous-counter increment)
+             :counter counter
+             :ewma (ewma (current :ewma) counter samples)
              :samples samples
              :latest-increment increment
              :tags tags}))
         (reset! state {:id id
          :timestamp (Long/parseLong timestamp)
          :counter increment
+         :ewma nil
          :samples 1
          :latest-increment increment
          :tags tags})))
@@ -100,16 +107,17 @@
           (let 
             [start (current :start)
             samples (inc (current :samples))
-            elapsed-time (- timer start)]
+            elapsed (- timer start)]
             (swap! state conj 
               {:timestamp timer
                :end timer
-               :elapsed-time elapsed-time
+               :elapsed-time elapsed
+               :ewma (ewma (current :ewma) elapsed samples)
                :samples samples
                :tags tags}))
           :else (throw (IllegalStateException. (str "Bad timer action: " action))))
         (if (= "start" action)
-          (reset! state {:id id :timestamp timer :start timer :end 0 :elapsed-time 0 :samples 0 :tags tags})
+          (reset! state {:id id :timestamp timer :start timer :end 0 :elapsed-time 0 :ewma nil :samples 0 :tags tags})
           (throw (IllegalStateException. (str "Bad timer action, first time must always be 'start', not: " action))))))
     this))
 
@@ -128,4 +136,4 @@
     new-metric-value (value-of (compute metric metric-id timestamp value tags))]
     (try 
       (set-metric @store metric-ns metric-type metric-id new-metric-value (aggregation-value-of metric)) 
-      (catch Exception ex (log/error (.getMessage ex) ex)))))
+      (catch Exception ex (log/error ex (.getMessage ex))))))
