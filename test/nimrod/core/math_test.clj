@@ -12,10 +12,10 @@
     ewma4 (ewma ewma3 41 1180000)
     ewma5 (ewma ewma4 55 1190000)
     ewma6 (ewma ewma5 63 1200000)
-    ewma7 (ewma ewma6 60 1200001)
+    ewma7 (ewma ewma6 150 1200001)
     ewma8 (ewma ewma7 85 1200200)
     ewma9 (ewma ewma8 99 1200300)
-    ewma10 (ewma ewma9 100 1200400)]
+    ewma10 (ewma ewma9 100 1290000)]
     (println ewma1)
     (println ewma2)
     (println ewma3)
