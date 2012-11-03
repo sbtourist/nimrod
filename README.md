@@ -10,7 +10,7 @@ In other words, for those of you who love the bullet points:
 It currently provides the following features:
 
 * Continuous log processing and metrics extraction.
-* Different types of metrics with fundamental statistical information, time-series history, and (optional) random sampling.
+* Different types of metrics, time-series history with statistical computations, (optional) random sampling.
 * Web-based, Javascript-friendly JSON-over-HTTP server, with basic support for Cross Origin Resource Sharing on GET requests.
 
 # Metrics
@@ -159,6 +159,7 @@ Storage can be configured by providing the specific implementation, related opti
 
     store {
         type : disk
+        path : directory_for_the_nimrod_database
         options {
             "cache.results" : number_of_metric_values_cached_during_queries
             "defrag.limit" : percentage_of_wasted_space_after_which_defrag_is_executed
@@ -172,6 +173,7 @@ Storage can be configured by providing the specific implementation, related opti
 Here is a more in-depth explanation: 
 
 * type: currently, only the *disk* implementation is supported (the old *memory* implementation isn't supported anymore).
+* path: the directory where the Nimrod database will be created/read. The database will be located in a directory named nimrod-data under the given path; if no path is provided, it will be created in the same directory where the Nimrod process is run.
 * "cache.results" (quoting is mandatory): how many metric values are cached in memory by a single query to the time-series history; if the query exceeds that value, the results 
 will be moved to disk and the query will be slower.
 * "defrag.limit" (quoting is mandatory): percentage of wasted disk space after which defrag is executed.
