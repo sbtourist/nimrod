@@ -15,4 +15,4 @@
                 [org.slf4j/slf4j-log4j12 "1.6.1"]]
  :repositories {"hsqldb" "http://www.hsqldb.org/repos" "typesafe" "http://repo.typesafe.com/typesafe/releases"}
  :aot [nimrod.core.startup]
- :java-source-path "src")
+ :java-source-paths ["src"])
