@@ -1,15 +1,22 @@
 (ns nimrod.core.math
  (:require [nimrod.core.util :as util]))
 
+; n = {1000, 10000, 100000}
+; k = 1 - ((samples % n) / n)
+; w = n ^ -k
+; ewma = (v * w) + (ewma-1 * (1 - w))
 (defn ewma [ewma-1 value samples]
   (let 
     [ewma-1 (or ewma-1 [0 0 0])
+    ; k decreases
     k-1000 (float (- 1 (/ (mod samples 1000) 1000)))
     k-10000 (float (- 1 (/ (mod samples 10000) 10000)))
     k-100000 (float (- 1 (/ (mod samples 100000) 100000)))
-    w-1000 (Math/pow 10 (* -1 (if (< k-1000 1) k-1000 0)))
-    w-10000 (Math/pow 100 (* -1 (if (< k-10000 1) k-10000 0)))
-    w-100000 (Math/pow 1000 (* -1 (if (< k-100000 1) k-100000 0)))]
+    ; w increases
+    w-1000 (Math/pow 1000 (* -1 (if (< k-1000 1) k-1000 0)))
+    w-10000 (Math/pow 10000 (* -1 (if (< k-10000 1) k-10000 0)))
+    w-100000 (Math/pow 100000 (* -1 (if (< k-100000 1) k-100000 0)))]
+    ; to calculate new ewma: current value increases, current ewma decreases
     [(float (+ (* value w-1000) (* (ewma-1 0) (- 1 w-1000))))
     (float (+ (* value w-10000) (* (ewma-1 1) (- 1 w-10000))))
     (float (+ (* value w-100000) (* (ewma-1 2) (- 1 w-100000))))]))
