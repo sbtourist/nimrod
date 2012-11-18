@@ -17,7 +17,7 @@ It currently provides the following features:
 
 ## Logging
 
-Nimrod metrics are printed on log files *by the user application*, while the Nimrod metrics server only listens to log and processes them: so,
+Nimrod metrics are printed on log files *by the user application*, while the Nimrod metrics server listens to log and processes them: so,
 metrics production is completely decoupled from metrics processing and storage.
 
 Metrics must be printed in a Nimrod-specific format, providing the following information in square brackets:
@@ -53,10 +53,6 @@ Here's a log line representing an alert value:
 
     [nimrod][123456789][alert][top_player][sergio]
 
-The Nimrod metrics server also computes and provides the following statistical information:
-
-* Mean and variance of the elapsed time.
-
 ## Gauges
 
 Number values representing a fixed indicator at a given time.
@@ -65,11 +61,6 @@ Here's a log line representing a gauge value:
 
     [nimrod][123456789][gauge][current_players][100]
 
-The Nimrod metrics server also computes and provides the following statistical information:
-
-* Mean and variance of time intervals between measure updates.
-* Mean and variance of the measure.
-
 ## Counters
 
 Number values representing an incrementing value over time, tracking both the latest increment and the overall counter value.
@@ -77,11 +68,6 @@ Number values representing an incrementing value over time, tracking both the la
 Here's a log line representing a counter value:
 
     [nimrod][123456789][counter][total_players][100]
-
-The Nimrod metrics server also computes and provides the following statistical information:
-
-* Mean and variance of time intervals between counter updates.
-* Mean and variance of the counter increment.
 
 ## Timers
 
@@ -97,9 +83,24 @@ And here's a log line stopping a previously started time computation:
 
 Elapsed time will be computed over the provided timestamps above (in the example above, the final value will be 1).
 
-The Nimrod metrics server also computes and provides the following statistical information:
+## Exponentially-weighted moving average 
 
-* Mean and variance of the elapsed time.
+For gauges, counters and timers values, Nimrod also provides an [exponentially-weighted moving average](http://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average) (ewma) computed over the latest 1 thousand, 10 tousands and 100 thousands values.
+
+Here is the formula behind the calculation:
+
+    n = {1000, 10000, 100000}
+    k = 1 - ((samples % n) / n)
+    w = n ^ -k
+    ewma = (v * w) + (ewma-1 * (1 - w))
+    
+The crux of the computation is that the weight of the previously computed ewma is higher at the start of the n-thousand range: for each new value arriving, you compute a new ewma with the weight of such a value increasing, and the weight of the previous ewma decreasing, at different slopes depending on the n-thousand range, with lower ranges discarding the previous ewma more quickly, and higher ranges retaining it longer. This happens until n-thousand values are collected: at this point, the computation starts again. 
+
+So, the function above isn't computed on a sliding range of values, but on a periodic, non-overlapping one: so you get n-thousand ewma values for each range, then you start again with the latest ewma and a new range.
+
+The advantage of the ewma function above is that you get a weighted average over a specific range of values, so that you can easily identify trends at different times.
+
+And if you want to go back in time and look at the different ewma values in the past, there is Nimrod time-series history.  
 
 ## Time-series history and sampling
 
@@ -124,7 +125,7 @@ values will be sampled and reduced to 1000, while the latest ones will be fully 
 
 ## Download/Build
 
-You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/downloads/sbtourist/nimrod/nimrod-0.6-standalone.jar).
+You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from [here](https://github.com/sbtourist/nimrod/downloads).
 
 Otherwise, you can check it out and build from source yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent [Leiningen](http://github.com/technomancy/leiningen).
@@ -262,7 +263,7 @@ Or by specifying a time interval:
 
     POST /logs/log_id/metric_type/metric_id/history/delete?from=start_time&to=end_time
 
-History can also be aggregated, providing the following summary statistics: count, median and percentiles. 
+History can also be aggregated, providing the following summary statistics: count, median, mean, variance and percentiles. 
 Aggregation happens by again specifying the max age:
 
     GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_allowed_age
@@ -296,7 +297,7 @@ Please note that this only resets the latest value, without affecting its histor
 
 * [Java Logging APIs](https://github.com/sbtourist/nimrod-java)
 * [Node.js Logging APIs](https://github.com/Lukewh/nimrod-node)
-* [Incanter-based Analytics](https://github.com/sbtourist/nimrod-incanter)
+* [Incanter integration](https://github.com/sbtourist/nimrod-incanter)
 * [Nagios integration](https://github.com/mbst/nagios-nimrod)
 
 # Feedback
