@@ -22,7 +22,8 @@
           <h2 id="project_tagline">Not Invasive MetRics, Oh Dear!</h2>
 
             <section id="downloads">
-              <a class="jar_download_link" href="https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-standalone.jar">Download this project as a standalone jar file</a>
+              <a class="zip_download_link" href="https://github.com/sbtourist/nimrod/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/sbtourist/nimrod/tarball/master">Download this project as a tar.gz file</a>
             </section>
         </header>
     </div>
@@ -30,7 +31,7 @@
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
       <section id="main_content" class="inner">
-        <h1>Nimrod 0.5</h1>
+        <h1>Nimrod 0.6</h1>
 
 <p>Nimrod is a metrics server purely based on log processing: hence, it doesn't affect the way you write your applications, nor has it any side effect on them.
 In other words, for those of you who love the bullet points:</p>
@@ -42,14 +43,14 @@ In other words, for those of you who love the bullet points:</p>
 </ul><p>It currently provides the following features:</p>
 
 <ul>
-<li>Continuous logs processing for metrics extraction.</li>
-<li>Different types of metrics with fundamental statistical information, time-series history, and (optional) random sampling.</li>
-<li>Web-based, Javascript-friendly JSON-over-HTTP server, with default support for Cross Origin Resource Sharing on GET requests.</li>
+<li>Continuous log processing and metrics extraction.</li>
+<li>Different types of metrics, time-series history with statistical computations, (optional) random sampling.</li>
+<li>Web-based, Javascript-friendly JSON-over-HTTP server, with basic support for Cross Origin Resource Sharing on GET requests.</li>
 </ul><h1>Metrics</h1>
 
 <h2>Logging</h2>
 
-<p>Nimrod metrics are printed on log files <em>by the user application</em>, while the Nimrod metrics server only listens to log and processes them: so,
+<p>Nimrod metrics are printed on log files <em>by the user application</em>, while the Nimrod metrics server listens to log and processes them: so,
 metrics production is completely decoupled from metrics processing and storage.</p>
 
 <p>Metrics must be printed in a Nimrod-specific format, providing the following information in square brackets:</p>
@@ -74,14 +75,14 @@ metrics production is completely decoupled from metrics processing and storage.<
 <pre><code>[nimrod][123456789][counter][players][100]
 </code></pre>
 
-<p>But you can also interleave whatever you want between Nimrod-specific values, in order to make your logs more human-friendly:</p>
-
-<pre><code>[nimrod][123456789][counter] - Current number of [players] is: [100]
-</code></pre>
-
 <p>And with tags:</p>
 
 <pre><code>[nimrod][123456789][counter][players][100][game_code:123,game_name:poker]
+</code></pre>
+
+<p>But you can also interleave whatever you want between Nimrod-specific values, in order to make your logs more human-friendly:</p>
+
+<pre><code>[nimrod][123456789][counter] - Current number of [players] is: [100]
 </code></pre>
 
 <h2>Alerts</h2>
@@ -93,11 +94,7 @@ metrics production is completely decoupled from metrics processing and storage.<
 <pre><code>[nimrod][123456789][alert][top_player][sergio]
 </code></pre>
 
-<p>The Nimrod metrics server also computes and provides the following statistical information:</p>
-
-<ul>
-<li>Mean and variance of the elapsed time.</li>
-</ul><h2>Gauges</h2>
+<h2>Gauges</h2>
 
 <p>Number values representing a fixed indicator at a given time.</p>
 
@@ -106,12 +103,7 @@ metrics production is completely decoupled from metrics processing and storage.<
 <pre><code>[nimrod][123456789][gauge][current_players][100]
 </code></pre>
 
-<p>The Nimrod metrics server also computes and provides the following statistical information:</p>
-
-<ul>
-<li>Mean and variance of time intervals between measure updates.</li>
-<li>Mean and variance of the measure.</li>
-</ul><h2>Counters</h2>
+<h2>Counters</h2>
 
 <p>Number values representing an incrementing value over time, tracking both the latest increment and the overall counter value.</p>
 
@@ -120,12 +112,7 @@ metrics production is completely decoupled from metrics processing and storage.<
 <pre><code>[nimrod][123456789][counter][total_players][100]
 </code></pre>
 
-<p>The Nimrod metrics server also computes and provides the following statistical information:</p>
-
-<ul>
-<li>Mean and variance of time intervals between counter updates.</li>
-<li>Mean and variance of the counter increment.</li>
-</ul><h2>Timers</h2>
+<h2>Timers</h2>
 
 <p>Number values representing the elapsed time between start and stop of a given event.</p>
 
@@ -141,11 +128,27 @@ metrics production is completely decoupled from metrics processing and storage.<
 
 <p>Elapsed time will be computed over the provided timestamps above (in the example above, the final value will be 1).</p>
 
-<p>The Nimrod metrics server also computes and provides the following statistical information:</p>
+<h2>Exponentially-weighted moving average</h2>
 
-<ul>
-<li>Mean and variance of the elapsed time.</li>
-</ul><h2>Time-series history and sampling</h2>
+<p>For gauges, counters and timers values, Nimrod also provides an <a href="http://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average">exponentially-weighted moving average</a> (ewma) computed over the latest 1 thousand, 10 tousands and 100 thousands values.</p>
+
+<p>Here is the formula behind the calculation:</p>
+
+<pre><code>n = {1000, 10000, 100000}
+k = 1 - ((samples % n) / n)
+w = n ^ -k
+ewma = (v * w) + (ewma-1 * (1 - w))
+</code></pre>
+
+<p>The crux of the computation is that the weight of the previously computed ewma is higher at the start of the n-thousand range: for each new value arriving, you compute a new ewma with the weight of such a value increasing, and the weight of the previous ewma decreasing, at different slopes depending on the n-thousand range, with lower ranges discarding the previous ewma more quickly, and higher ranges retaining it longer. This happens until n-thousand values are collected: at this point, the computation starts again. </p>
+
+<p>So, the function above isn't computed on a sliding range of values, but on a periodic, non-overlapping one: so you get n-thousand ewma values for each range, then you start again with the latest ewma and a new range.</p>
+
+<p>The advantage of the ewma function above is that you get a weighted average over a specific range of values, so that you can easily identify trends at different times.</p>
+
+<p>And if you want to go back in time and look at the different ewma values in the past, there is Nimrod time-series history.  </p>
+
+<h2>Time-series history and sampling</h2>
 
 <p>For each metric, Nimrod stores all processed values in time-series which you can browse through the Nimrod HTTP interface, or query through external tools 
 for monitoring purposes or further statistical analysis.</p>
@@ -168,7 +171,7 @@ values will be sampled and reduced to 1000, while the latest ones will be fully 
 
 <h2>Download/Build</h2>
 
-<p>You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from <a href="https://github.com/downloads/sbtourist/nimrod/nimrod-0.5-standalone.jar">here</a>.</p>
+<p>You can download the latest, ready-to-use, Nimrod binary version as a standalone self-contained jar from <a href="https://github.com/sbtourist/nimrod/downloads">here</a>.</p>
 
 <p>Otherwise, you can check it out and build from source yourself:
 Nimrod is written in wonderful Clojure, and you can build it with the excellent <a href="http://github.com/technomancy/leiningen">Leiningen</a>.
@@ -180,9 +183,9 @@ Once you have Leiningen installed, it is as easy as:</p>
 <h2>Configuration</h2>
 
 <p>Nimrod can be configured by creating and editing a <em>nimrod.conf</em> file placed in the same directory where you start the Nimrod process; it is based on the
-<a href="https://github.com/typesafehub/config">HOCON</a> format.</p>
+<a href="https://github.com/typesafehub/config">HOCON</a> format, kind of JSON but even easier for people to write.</p>
 
-<p>You can pre-register log files to process and configure the metrics storage implementation.</p>
+<p>You can pre-register log files to process, configure the metrics server and storage.</p>
 
 <p>Logs can be pre-registered at startup by providing a <em>logs</em> block and a nested block for every log, identified by a unique name, as follows:</p>
 
@@ -205,6 +208,7 @@ Once you have Leiningen installed, it is as easy as:</p>
 
 <pre><code>store {
     type : disk
+    path : directory_for_the_nimrod_database
     options {
         "cache.results" : number_of_metric_values_cached_during_queries
         "defrag.limit" : percentage_of_wasted_space_after_which_defrag_is_executed
@@ -220,6 +224,7 @@ Once you have Leiningen installed, it is as easy as:</p>
 
 <ul>
 <li>type: currently, only the <em>disk</em> implementation is supported (the old <em>memory</em> implementation isn't supported anymore).</li>
+<li>path: the directory where the Nimrod database will be created/read. The database will be located in a directory named nimrod-data under the given path; if no path is provided, it will be created in the same directory where the Nimrod process is run.</li>
 <li>"cache.results" (quoting is mandatory): how many metric values are cached in memory by a single query to the time-series history; if the query exceeds that value, the results 
 will be moved to disk and the query will be slower.</li>
 <li>"defrag.limit" (quoting is mandatory): percentage of wasted disk space after which defrag is executed.</li>
@@ -228,16 +233,29 @@ by only specifying the log identifier (i.e. log1), or for all metrics of a given
 and the metric type (i.e. log1.gauge), or for a specific named metric of a given type from a log file by specifying the log identifier followed by a dot 
 and the metric type followed by a dot and the metric name (i.e. log1.gauge.requests).</li>
 <li>"metric.factor" (quoting is mandatory): sampling factor for metrics, defined in the same way as metric.frequency.</li>
-</ul><h2>Startup</h2>
+</ul><p>Finally, the http server can be configured with the following options:</p>
 
-<p>The Nimrod metrics server can be easily started as follows (replace "version" with the actual Nimrod version and "8000" with you port of choice):</p>
-
-<pre><code>$&gt; java -cp nimrod-version-standalone.jar nimrod.web.startup 8000
+<pre><code>server {
+    port : http_server_port
+    max-busy-requests : max_number_of_concurrent_requests_after_which_server_returns_503
+} 
 </code></pre>
 
-<p>This will start the Nimrod web server and log processing activity.</p>
+<p>More specifically:</p>
 
-<p>Please note that Nimrod must be started on the same machine hosting the logs, in order to listen to and process them.</p>
+<ul>
+<li>port: the port the http server listens to (mandatory).</li>
+<li>max-busy-requests: the max number of concurrent busy requests allowed by the server prior to returning "service unavailable" (503 HTTP status code); this is an advanced configuration option to be used to prevent flooding the server with long-running requests (optional).</li>
+</ul><h2>Startup</h2>
+
+<p>The Nimrod metrics server can be easily started as follows:</p>
+
+<pre><code>$&gt; java -cp nimrod-version-standalone.jar nimrod.core.startup
+</code></pre>
+
+<p>This will start the Nimrod http server and the log processing threads.</p>
+
+<p>Please note Nimrod must be started on the same machine hosting the logs (either where they originated or where they have been moved to by tools like Syslog), in order to listen to and process them.</p>
 
 <h2>Log files querying and management</h2>
 
@@ -258,7 +276,7 @@ and the metric type followed by a dot and the metric name (i.e. log1.gauge.reque
 <pre><code>GET /logs/log_id
 </code></pre>
 
-<p>Once you have the metric type, you can query all actual metrics under that log and metric type, as follows:</p>
+<p>Once you have the metric type, you can query all actual metrics under that log and metric type:</p>
 
 <pre><code>GET /logs/log_id/metric_type
 </code></pre>
@@ -270,7 +288,7 @@ and the metric type followed by a dot and the metric name (i.e. log1.gauge.reque
 
 <p>Here, <em>metric_id</em> is the name of the specific metric you want to read.</p>
 
-<p>You will always get the latest metric value, but you can also access its time-series history as follows:</p>
+<p>You will always get the latest metric value, but you can also access its time-series history:</p>
 
 <pre><code>GET /logs/log_id/metric_type/metric_id/history
 </code></pre>
@@ -279,15 +297,17 @@ and the metric type followed by a dot and the metric name (i.e. log1.gauge.reque
 
 <p>You can browse through the history by age:</p>
 
-<pre><code>GET /logs/log_id/metric_type/metric_id/history?age=max_age_in_millis
+<pre><code>GET /logs/log_id/metric_type/metric_id/history?age=max_allowed_age
 </code></pre>
 
 <p>Or time interval:</p>
 
-<pre><code>GET /logs/log_id/metric_type/metric_id/history?from=unix_time_in_millis&amp;to=unix_time_in_millis
+<pre><code>GET /logs/log_id/metric_type/metric_id/history?from=start_time&amp;to=end_time
 </code></pre>
 
-<p>And also use tags for filtering the results:</p>
+<p>Here, <em>max_allowed_age</em> represents the maximum age for the metrics to be returned in the history: it can be expressed in milliseconds time, or with a human-friendly time expression such as <em>1d</em>. Also, <em>start_time</em> and <em>end_time</em>, representing the time interval for history metrics, can be expressed similarly with either the unix time in milliseconds, or a human-friendly time expression such as <em>1d.ago</em>. Time expressions are composed by the number of time units (*1*) and the actual time unit (either <em>d</em> for days, <em>h</em> for hours, <em>m</em> for minutes, <em>s</em> for seconds), plus the <em>.ago</em> fixed string for the <em>from/to</em> interval parameters.</p>
+
+<p>You can also use tags for filtering history results:</p>
 
 <pre><code>GET /logs/log_id/metric_type/metric_id/history?tags=comma_separated_list_of_tags
 </code></pre>
@@ -296,29 +316,31 @@ and the metric type followed by a dot and the metric name (i.e. log1.gauge.reque
 
 <p>History can be "pruned" by deleting values whose latest update happened before a given number of milliseconds:</p>
 
-<pre><code>POST /logs/log_id/metric_type/metric_id/history/delete?age=millis
+<pre><code>POST /logs/log_id/metric_type/metric_id/history/delete?age=max_allowed_age
 </code></pre>
 
 <p>Or by specifying a time interval:</p>
 
-<pre><code>POST /logs/log_id/metric_type/metric_id/history/delete?from=unix_time_in_millis&amp;to=unix_time_in_millis
+<pre><code>POST /logs/log_id/metric_type/metric_id/history/delete?from=start_time&amp;to=end_time
 </code></pre>
 
-<p>History can also be aggregated, providing the following summary statistics: count, median and percentiles. 
+<p>History can also be aggregated, providing the following summary statistics: count, median, mean, variance and percentiles. 
 Aggregation happens by again specifying the max age:</p>
 
-<pre><code>GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_age_in_millis
+<pre><code>GET /logs/log_id/metric_type/metric_id/history/aggregate?age=max_allowed_age
 </code></pre>
 
 <p>Or time interval:</p>
 
-<pre><code>GET /logs/log_id/metric_type/metric_id/history/aggregate?from=unix_time_in_millis&amp;to=unix_time_in_millis
+<pre><code>GET /logs/log_id/metric_type/metric_id/history/aggregate?from=start_time&amp;to=end_time
 </code></pre>
 
 <p>Desired percentiles can also be specified as follows:</p>
 
 <pre><code>GET /logs/log_id/metric_type/metric_id/history/aggregate?percentiles=comma_separated_list_of_percentages_ie_25,50,99
 </code></pre>
+
+<p>Same rules as before apply for time parameters in history removal and aggregation: they can be specified either in milliseconds or time expressions. </p>
 
 <p>Finally, metrics can be reset as follows:</p>
 
@@ -339,8 +361,10 @@ Aggregation happens by again specifying the max age:</p>
 </ul><h1>Related Projects</h1>
 
 <ul>
-<li><a href="https://github.com/sbtourist/nimrod-java">Nimrod-Java</a></li>
-<li><a href="https://github.com/sbtourist/nimrod-incanter">Nimrod-Incanter</a></li>
+<li><a href="https://github.com/sbtourist/nimrod-java">Java Logging APIs</a></li>
+<li><a href="https://github.com/Lukewh/nimrod-node">Node.js Logging APIs</a></li>
+<li><a href="https://github.com/sbtourist/nimrod-incanter">Incanter integration</a></li>
+<li><a href="https://github.com/mbst/nagios-nimrod">Nagios integration</a></li>
 </ul><h1>Feedback</h1>
 
 <p>For everything Nimrod-related, please join the nimrod-user group: <a href="http://groups.google.com/group/nimrod-user">http://groups.google.com/group/nimrod-user</a></p>

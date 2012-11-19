@@ -328,15 +328,7 @@ Full-Width Styles
   bottom: -40px;
   right: 0;
   height: 70px;
-}
-
-.jar_download_link {
-  display: block;
-  width:  89px;
-  height: 89px;
-  text-indent: -5000px;
-  overflow: hidden;
-  background: url(../images/jar_download.png);
+  background: url('../images/icon_download.png') no-repeat 0% 90%;
 }
 
 .zip_download_link {
@@ -358,12 +350,6 @@ Full-Width Styles
   overflow: hidden;
   background: url(../images/sprite_download.png) no-repeat bottom right;
   margin-left: 10px;
-}
-
-.jar_download_link:hover {
-  width:  76px;
-  height: 76px;
-  background: url('../images/icon_download.png') no-repeat;
 }
 
 .zip_download_link:hover {
