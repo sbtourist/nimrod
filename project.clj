@@ -1,4 +1,4 @@
-(defproject nimrod "0.6.0-SNAPSHOT"
+(defproject nimrod "0.6.0"
  :description "Not Invasive MetRics, Oh Dear!"
  :dependencies [
                 [org.clojure/clojure "1.4.0"]
