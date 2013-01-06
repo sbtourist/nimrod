@@ -292,6 +292,7 @@ Please note that this only resets the latest value, without affecting its histor
 # Related Articles
 
 * [Metrics visibility with Syslog-NG, Nimrod and Nagios](http://metabroadcast.com/blog/logfile-lovin-marrying-nimrod-and-nagios-for-software-visibility)
+* [Routing and visualizing Nimrod metrics with Sensu, Graphite and Tasseo](http://metabroadcast.com/blog/turning-metrics-into-eye-candy)
 
 # Related Projects
 
@@ -306,6 +307,6 @@ For everything Nimrod-related, please join the nimrod-user group: http://groups.
 
 # License
 
-Copyright (C) 2011-2012 [Sergio Bossa](http://twitter.com/sbtourist)
+Copyright (C) 2011-2013 [Sergio Bossa](http://twitter.com/sbtourist)
 
 Distributed under the [Apache Software License](http://www.apache.org/licenses/LICENSE-2.0.html).
