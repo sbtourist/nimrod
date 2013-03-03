@@ -20,6 +20,8 @@
 
 (defonce default-age (minutes 1))
 
+(defonce sampling-monitor (Object.))
+
 (defn- from-json-map [m]
   (json/generate-smile m))
 
@@ -56,7 +58,7 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id))")
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, PRIMARY KEY (ns,type,id))")
           (sql/do-prepared 
             "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id,timestamp,seq))")
           (sql/do-prepared 
@@ -79,11 +81,15 @@
         (sql/with-query-results 
           all-metrics
           ["SELECT * FROM metrics"] 
-          (doseq [metric all-metrics] 
-            (dosync 
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (metric :metric)))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
+          (doseq [metric all-metrics]
+            (sql/with-query-results 
+              all-values
+              ["SELECT * FROM history WHERE ns=? AND type=? AND id=? ORDER BY seq DESC LIMIT 1" (metric :ns) (metric :type) (metric :id)]
+              (doseq [value all-values]
+                (dosync 
+                  (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (value :seq))
+                  (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (value :metric)))
+                  (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))))
 
   (set-metric [this metric-ns metric-type metric-id metric aggregation]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
@@ -112,10 +118,11 @@
           ; Insert metric/history:
           (sql/with-connection connection-factory 
             (sql/transaction 
-              (sql/update-or-insert-values 
-                "metrics"
-                ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
-                {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})
+              (try 
+                (sql/insert-record
+                  "metrics"
+                  {"ns" metric-ns "type" metric-type "id" metric-id}) 
+                  (catch Exception ex))
               (sql/insert-record
                 "history"
                 {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})))
@@ -123,7 +130,7 @@
             (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))
           ; Optionally sample:
           (if (do-sampling? new-samples sampling-frequency)
-            (do 
+            (locking sampling-monitor
               (sql/with-connection connection-factory 
                 (sql/transaction 
                   (loop [record (- new-seq-value new-samples) samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
@@ -215,8 +222,8 @@
   (aggregate-history [this metric-ns metric-type metric-id tags age from to aggregators]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
     (sql/with-connection connection-factory
+      (sql/do-prepared "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE DEFAULT ISOLATION LEVEL SERIALIZABLE")
         (let 
           [now (clock)
           actual-from (if (nil? from) (- now (or age default-age)) from)
