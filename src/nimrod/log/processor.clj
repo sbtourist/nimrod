@@ -37,4 +37,4 @@
         (do (compute-metric log metric-type (extracted :name) (extracted :timestamp) (extracted :value) (extracted :tags)) true)
         (do (log/warn (str "No metric with name: " (extracted :metric))) false))
       false)
-    (catch Exception ex (do (log/error ex (.getMessage ex)) false))))
+    (catch Exception ex (do (log/error ex (.getMessage ex)) (log/error (str "Log: " log "\n\rLine: " line)) false))))
