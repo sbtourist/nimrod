@@ -136,4 +136,4 @@
     new-metric-value (value-of (compute metric metric-id timestamp value tags))]
     (try 
       (set-metric @store metric-ns metric-type metric-id new-metric-value (aggregation-value-of metric)) 
-      (catch Exception ex (log/error ex (.getMessage ex))))))
+      (catch Exception ex (do (log/error ex (.getMessage ex)) (when (.getCause ex) (log/error (.getCause ex) (.getMessage (.getCause ex)))) (throw ex))))))
