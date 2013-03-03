@@ -40,7 +40,7 @@
         (throw (IllegalStateException. (str "Duplicated log identifier: " id)))
         (alter tailers assoc id {:log log :tailer tailer})))
     (doto 
-      (Thread. tailer) (.setDaemon true) (.start))
+      (Thread. tailer (str "Tailer-" id)) (.setDaemon true) (.start))
     id))
 
 (defn stop-tailer [id]
