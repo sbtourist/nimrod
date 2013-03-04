@@ -118,11 +118,10 @@
           ; Insert metric/history:
           (sql/with-connection connection-factory 
             (sql/transaction 
-              (try 
+              (when (= 0 current-seq-value)
                 (sql/insert-record
                   "metrics"
-                  {"ns" metric-ns "type" metric-type "id" metric-id}) 
-                  (catch Exception ex))
+                  {"ns" metric-ns "type" metric-type "id" metric-id}))
               (sql/insert-record
                 "history"
                 {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})))
