@@ -9,16 +9,46 @@
    [nimrod.core.math]
    [nimrod.core.util]
    [nimrod.internal.stats])
- (:import org.hsqldb.jdbc.JDBCPool)
+ (:import 
+  [java.util.concurrent LinkedBlockingQueue]
+  [org.hsqldb.jdbc JDBCPool])
  (:refer-clojure :exclude (resultset-seq)))
 
+(defonce default-batch-op-limit 1000)
+(defonce default-batch-queue-limit 1000)
+(defonce default-defrag-op-limit 1000000)
 (defonce default-cache-entries 1000)
 (defonce default-cache-results 1000000)
-(defonce default-defrag-limit 0)
 (defonce default-sampling-factor 10)
 (defonce default-sampling-frequency 0)
 
 (defonce default-age (minutes 1))
+
+(defonce batch-error (atom nil))
+(defonce defrag-counter (atom nil))
+
+(defn- batcher [batch-queue batch-limit defrag-limit connection-factory] 
+  (proxy [Runnable] []
+    (run []
+      (reset! defrag-counter 0)
+      (try
+        (loop [batch (.take batch-queue)]
+         (sql/with-connection connection-factory
+          (sql/transaction 
+            (loop [limit batch-limit current batch]
+              (when current
+                (current)
+                (swap! defrag-counter inc)
+                (when (> limit 0) (recur (dec limit) (.poll batch-queue)))))
+            (sql/do-prepared "COMMIT WORK")
+            (when (>= @defrag-counter defrag-limit)
+              (do 
+                (sql/do-prepared "CHECKPOINT DEFRAG")
+                (reset! defrag-counter 0)))))
+         (recur (.take batch-queue)))
+        (catch Exception ex 
+          (log/error ex (.getMessage ex))
+          (reset! batch-error ex))))))
 
 (defn- from-json-map [m]
   (json/generate-smile m))
@@ -46,7 +76,7 @@
 
   (stats [this]))
 
-(deftype DiskStore [connection-factory memory options sampling]
+(deftype DiskStore [batch-queue connection-factory memory options sampling]
   
   Store
   
@@ -70,7 +100,7 @@
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVCC"))
+        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL LOCKS"))
       (sql/transaction 
         (sql/do-prepared (str "SET DATABASE DEFAULT RESULT MEMORY ROWS " (or (options "cache.results") default-cache-results))))
       (sql/transaction
@@ -83,61 +113,78 @@
             (dosync 
               (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
               (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (metric :metric)))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
+              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0))))))
+    (doto 
+      (Thread. 
+        (batcher 
+          batch-queue 
+          (or (options "batch.op-limit") default-batch-op-limit) 
+          (or (options "defrag.op-limit") default-defrag-op-limit) 
+          connection-factory))
+      (.setDaemon true) 
+      (.setName "DiskStore Batch Thread")
+      (.start)))
 
-  (set-metric [this metric-ns metric-type metric-id metric aggregation]
-    (update-rate-stats [:operations-per-second] (clock) (seconds 1))
-    (let 
-      [now (clock)
-      current-seq-value (get-in @memory [metric-ns metric-type metric-id :seq] 0)
-      current-samples (get-in @memory [metric-ns metric-type metric-id :samples] 0)
-      new-seq-value (inc current-seq-value)
-      new-samples (inc current-samples)
-      new-aggregation-value aggregation
-      new-json-metric (from-json-map metric)
-      new-metric-timestamp (metric :timestamp)
-      sampling-factor (or 
-        (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
-        (sampling (str metric-ns "." metric-type ".factor"))
-        (sampling (str metric-ns ".factor")) 
-        default-sampling-factor)
-      sampling-frequency (or 
-        (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
-        (sampling (str metric-ns "." metric-type ".frequency"))
-        (sampling (str metric-ns ".frequency"))
-        default-sampling-frequency)]
+(set-metric [this metric-ns metric-type metric-id metric aggregation]
+  (when @batch-error (throw @batch-error))
+  (.put batch-queue 
+    (fn []
+      (let 
+        [now (clock)
+        current-seq-value (get-in @memory [metric-ns metric-type metric-id :seq] 0)
+        current-samples (get-in @memory [metric-ns metric-type metric-id :samples] 0)
+        new-seq-value (inc current-seq-value)
+        new-samples (inc current-samples)
+        new-aggregation-value aggregation
+        new-json-metric (from-json-map metric)
+        new-metric-timestamp (metric :timestamp)
+        sampling-factor (or 
+          (sampling (str metric-ns "." metric-type "." metric-id ".factor"))
+          (sampling (str metric-ns "." metric-type ".factor"))
+          (sampling (str metric-ns ".factor")) 
+          default-sampling-factor)
+        sampling-frequency (or 
+          (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
+          (sampling (str metric-ns "." metric-type ".frequency"))
+          (sampling (str metric-ns ".frequency"))
+          default-sampling-frequency)]
+          ; Update store stats:
+          (update-rate-stats [:operations-per-second] (clock) (seconds 1))
           ; Increment sequence prior to actually using it to avoid duplicated entries:
           (dosync
             (alter memory assoc-in [metric-ns metric-type metric-id :seq] new-seq-value))
           ; Insert metric/history:
-          (sql/with-connection connection-factory 
-            (sql/transaction 
-              (sql/update-or-insert-values 
+          (sql/with-query-results 
+            r
+            ["SELECT * FROM metrics WHERE ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
+            (if (seq r)
+              (sql/update-values 
                 "metrics"
                 ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
-                {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})
-              (sql/insert-record
-                "history"
+                {"timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})
+              (sql/insert-records
+                "metrics"
                 {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})))
+          (sql/insert-records
+            "history"
+            {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})
           (dosync
             (alter memory assoc-in [metric-ns metric-type metric-id :metric] metric))
           ; Optionally sample:
           (if (do-sampling? new-samples sampling-frequency)
             (do 
-              (sql/with-connection connection-factory 
-                (sql/transaction 
-                  (loop [record (- new-seq-value new-samples) samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
-                    (if (<= (int (* samples (rand))) to-delete)
-                      (do
-                        (sql/delete-rows "history" 
-                          ["ns=? AND type=? AND id=? AND seq=?"
-                          metric-ns metric-type metric-id record])
-                        (when (> (dec to-delete) 0) (recur (dec record) (dec samples) (dec to-delete))))
-                      (recur (dec record) (dec samples) to-delete)))))
+              (loop [record (- new-seq-value new-samples) samples new-samples to-delete (- new-samples (/ new-samples sampling-factor))]
+                (if (<= (int (* samples (rand))) to-delete)
+                  (do
+                    (sql/delete-rows "history" 
+                      ["ns=? AND type=? AND id=? AND seq=?"
+                      metric-ns metric-type metric-id record])
+                    (when (> (dec to-delete) 0) (recur (dec record) (dec samples) (dec to-delete))))
+                  (recur (dec record) (dec samples) to-delete)))
               (dosync
                 (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
             (dosync
-              (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))
+              (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))))
 
   (remove-metric [this metric-ns metric-type metric-id]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
@@ -261,18 +308,17 @@
     (when (seq options) (log/info (str "Starting DiskStore located in " path " with options: " options)))
     (when (seq sampling) (log/info (str "Sampling with: " sampling)))
     (let 
-      [defrag-limit (or (options "defrag.limit") default-defrag-limit)
+      [batch-queue-limit (or (options "batch.queue-limit") default-batch-queue-limit)
       cache-entries (or (options "cache.entries") default-cache-entries)
       pool (doto (JDBCPool.)
        (.setUrl (str 
         "jdbc:hsqldb:file:" path ";"
-        "shutdown=true;hsqldb.applog=2;hsqldb.log_size=50;hsqldb.cache_file_scale=128;"
-        "hsqldb.defrag_limit=" defrag-limit ";" 
+        "autocommit=false;shutdown=true;hsqldb.applog=2;hsqldb.log_size=50;hsqldb.cache_file_scale=128;hsqldb.defrag_limit=0;"
         "hsqldb.cache_rows=" cache-entries ";" 
         "hsqldb.cache_size=" cache-entries))
        (.setUser "SA")
        (.setPassword ""))
-      disk-store (DiskStore. {:datasource pool} (ref nil) options sampling)]
+      disk-store (DiskStore. (LinkedBlockingQueue. batch-queue-limit) {:datasource pool} (ref nil) options sampling)]
       (.addShutdownHook (Runtime/getRuntime) (proxy [Thread] [] (run [] (.close pool 1))))
       (init disk-store)
       disk-store))
