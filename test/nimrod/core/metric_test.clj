@@ -6,36 +6,44 @@
 
 (defn- update-alert
   ([alert-ns alert-id timestamp value]
-    (compute-metric alert-ns "nimrod.core.metric.Alert" alert-id timestamp value #{}))
+    (compute-metric alert-ns "nimrod.core.metric.Alert" alert-id timestamp value #{})
+    (Thread/sleep 1000))
   ([alert-ns alert-id timestamp value tags]
-    (compute-metric alert-ns "nimrod.core.metric.Alert" alert-id timestamp value tags)))
+    (compute-metric alert-ns "nimrod.core.metric.Alert" alert-id timestamp value tags)
+    (Thread/sleep 1000)))
 
 (defn- read-alert [alert-ns alert-id]
   (read-metric @store alert-ns "nimrod.core.metric.Alert" alert-id))
 
 (defn- update-gauge
   ([gauge-ns gauge-id timestamp value]
-    (compute-metric gauge-ns "nimrod.core.metric.Gauge" gauge-id timestamp value #{}))
+    (compute-metric gauge-ns "nimrod.core.metric.Gauge" gauge-id timestamp value #{})
+    (Thread/sleep 1000))
   ([gauge-ns gauge-id timestamp value tags]
-    (compute-metric gauge-ns "nimrod.core.metric.Gauge" gauge-id timestamp value tags)))
+    (compute-metric gauge-ns "nimrod.core.metric.Gauge" gauge-id timestamp value tags)
+    (Thread/sleep 1000)))
 
 (defn- read-gauge [gauge-ns gauge-id]
   (read-metric @store gauge-ns "nimrod.core.metric.Gauge" gauge-id))
 
 (defn- update-counter 
   ([counter-ns counter-id timestamp value]
-    (compute-metric counter-ns "nimrod.core.metric.Counter" counter-id timestamp value #{}))
+    (compute-metric counter-ns "nimrod.core.metric.Counter" counter-id timestamp value #{})
+    (Thread/sleep 1000))
   ([counter-ns counter-id timestamp value tags]
-    (compute-metric counter-ns "nimrod.core.metric.Counter" counter-id timestamp value tags)))
+    (compute-metric counter-ns "nimrod.core.metric.Counter" counter-id timestamp value tags)
+    (Thread/sleep 1000)))
 
 (defn- read-counter [counter-ns counter-id]
   (read-metric @store counter-ns "nimrod.core.metric.Counter" counter-id))
 
 (defn- update-timer 
   ([timer-ns timer-id timestamp value]
-    (compute-metric timer-ns "nimrod.core.metric.Timer" timer-id timestamp value #{}))
+    (compute-metric timer-ns "nimrod.core.metric.Timer" timer-id timestamp value #{})
+    (Thread/sleep 1000))
   ([timer-ns timer-id timestamp value tags]
-    (compute-metric timer-ns "nimrod.core.metric.Timer" timer-id timestamp value tags)))
+    (compute-metric timer-ns "nimrod.core.metric.Timer" timer-id timestamp value tags)
+    (Thread/sleep 1000)))
 
 (defn- read-timer [timer-ns timer-id]
   (read-metric @store timer-ns "nimrod.core.metric.Timer" timer-id))
@@ -88,7 +96,7 @@
     (is (= 6 ((read-counter "counter-metrics" "1") :latest-increment)))))
 
 (deftest timer-metrics
-  (start-store (new-disk-store (java.io.File/createTempFile "test" "timer-metrics")))
+  (start-store (new-disk-store (java.io.File/createTempFile "test" "timer-metrics") {"batch.op-limit" 1} {}))
   (testing "Null timer"
     (is (nil? (read-timer "timer-metrics" "1"))))
   (testing "Start timer"

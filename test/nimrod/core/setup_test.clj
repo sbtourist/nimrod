@@ -19,7 +19,7 @@
     (with-redefs [new-disk-store (fn [p o s] (reset! path p) (reset! options o) (reset! sampling s))]
       (setup "test/nimrod2.conf")
       (is (= "/opt/nimrod/nimrod-data/db" @path))
-      (is (= {"cache.entries" 1 "cache.results" 2 "defrag.limit" 3} @options))
+      (is (= {"cache.entries" 1 "cache.results" 2 "batch.op-limit" 3 "batch.queue-limit" 4 "defrag.op-limit" 5} @options))
       (is (= {"test.frequency" 10} @sampling)))))
 
 (deftest setup-server

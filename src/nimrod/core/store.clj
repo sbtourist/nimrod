@@ -14,7 +14,7 @@
   [org.hsqldb.jdbc JDBCPool])
  (:refer-clojure :exclude (resultset-seq)))
 
-(defonce default-batch-op-limit 1000)
+(defonce default-batch-op-limit 100)
 (defonce default-batch-queue-limit 1000)
 (defonce default-defrag-op-limit 1000000)
 (defonce default-cache-entries 1000)
@@ -100,7 +100,7 @@
       (catch Exception ex))
     (sql/with-connection connection-factory
       (sql/transaction 
-        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL LOCKS"))
+        (sql/do-prepared "SET DATABASE TRANSACTION CONTROL MVLOCKS"))
       (sql/transaction 
         (sql/do-prepared (str "SET DATABASE DEFAULT RESULT MEMORY ROWS " (or (options "cache.results") default-cache-results))))
       (sql/transaction
