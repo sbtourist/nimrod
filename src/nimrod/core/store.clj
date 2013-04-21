@@ -14,11 +14,13 @@
 
 (defonce default-cache-entries 1000)
 (defonce default-cache-results 1000000)
-(defonce default-defrag-limit 0)
+(defonce default-defrag-op-limit 1000000)
 (defonce default-sampling-factor 10)
 (defonce default-sampling-frequency 0)
 
 (defonce default-age (minutes 1))
+
+(defonce defrag-counter (atom 0))
 
 (defn- from-json-map [m]
   (json/generate-smile m))
@@ -105,7 +107,8 @@
         (sampling (str metric-ns "." metric-type "." metric-id ".frequency"))
         (sampling (str metric-ns "." metric-type ".frequency"))
         (sampling (str metric-ns ".frequency"))
-        default-sampling-frequency)]
+        default-sampling-frequency)
+      defrag-limit (or (options "defrag.op-limit") default-defrag-op-limit)]
           ; Increment sequence prior to actually using it to avoid duplicated entries:
           (dosync
             (alter memory assoc-in [metric-ns metric-type metric-id :seq] new-seq-value))
@@ -137,7 +140,13 @@
               (dosync
                 (alter memory assoc-in [metric-ns metric-type metric-id :samples] 0)))
             (dosync
-              (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))))
+              (alter memory assoc-in [metric-ns metric-type metric-id :samples] new-samples)))
+          (when (= defrag-limit (swap! defrag-counter inc))
+            (do 
+              (sql/with-connection connection-factory 
+                (sql/transaction
+                  (sql/do-prepared "CHECKPOINT DEFRAG")))
+              (reset! defrag-counter 0)))))
 
   (remove-metric [this metric-ns metric-type metric-id]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
@@ -261,13 +270,11 @@
     (when (seq options) (log/info (str "Starting DiskStore located in " path " with options: " options)))
     (when (seq sampling) (log/info (str "Sampling with: " sampling)))
     (let 
-      [defrag-limit (or (options "defrag.limit") default-defrag-limit)
-      cache-entries (or (options "cache.entries") default-cache-entries)
+      [cache-entries (or (options "cache.entries") default-cache-entries)
       pool (doto (JDBCPool.)
        (.setUrl (str 
         "jdbc:hsqldb:file:" path ";"
-        "shutdown=true;hsqldb.applog=2;hsqldb.log_size=50;hsqldb.cache_file_scale=128;"
-        "hsqldb.defrag_limit=" defrag-limit ";" 
+        "shutdown=true;hsqldb.applog=2;hsqldb.log_size=50;hsqldb.cache_file_scale=128;hsqldb.defrag_limit=0;" 
         "hsqldb.cache_rows=" cache-entries ";" 
         "hsqldb.cache_size=" cache-entries))
        (.setUser "SA")
