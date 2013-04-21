@@ -58,7 +58,7 @@
       (sql/with-connection connection-factory
         (sql/transaction 
           (sql/do-prepared 
-            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id))")
+            "CREATE CACHED TABLE metrics (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, PRIMARY KEY (ns,type,id))")
           (sql/do-prepared 
             "CREATE CACHED TABLE history (ns LONGVARCHAR, type LONGVARCHAR, id LONGVARCHAR, timestamp BIGINT, seq BIGINT, metric LONGVARBINARY, aggregation DOUBLE, PRIMARY KEY (ns,type,id,timestamp,seq))")
           (sql/do-prepared 
@@ -78,14 +78,24 @@
       (sql/transaction
         (sql/do-prepared "SET TABLE history CLUSTERED ON (ns,type,id,timestamp)"))
       (sql/transaction
-        (sql/with-query-results 
+        (sql/with-query-results
           all-metrics
-          ["SELECT * FROM metrics"] 
-          (doseq [metric all-metrics] 
-            (dosync 
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (metric :seq))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (metric :metric)))
-              (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))
+          ["SELECT * FROM metrics"]
+          (doseq [metric all-metrics]
+            (sql/with-query-results 
+              latest-metrics
+              ["SELECT MAX(timestamp) AS ts, MAX(seq) AS seq FROM history WHERE ns=? AND type=? AND id=?"
+              (metric :ns) (metric :type) (metric :id)]
+              (doseq [latest latest-metrics]
+                (sql/with-query-results 
+                  actual-metrics
+                  ["SELECT metric FROM history WHERE ns=? AND type=? AND id=? AND timestamp=? AND seq=?"
+                  (metric :ns) (metric :type) (metric :id) (latest :ts) (latest :seq)]
+                  (doseq [actual actual-metrics] 
+                    (dosync 
+                      (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :seq] (latest :seq))
+                      (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :metric] (to-json-map (actual :metric)))
+                      (alter memory assoc-in [(metric :ns) (metric :type) (metric :id) :samples] 0)))))))))))
 
   (set-metric [this metric-ns metric-type metric-id metric aggregation]
     (update-rate-stats [:operations-per-second] (clock) (seconds 1))
@@ -115,10 +125,10 @@
           ; Insert metric/history:
           (sql/with-connection connection-factory 
             (sql/transaction 
-              (sql/update-or-insert-values 
-                "metrics"
-                ["ns=? AND type=? AND id=?" metric-ns metric-type metric-id]
-                {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})
+              (when (= 0 current-seq-value)
+                (sql/insert-record
+                  "metrics"
+                  {"ns" metric-ns "type" metric-type "id" metric-id}))
               (sql/insert-record
                 "history"
                 {"ns" metric-ns "type" metric-type "id" metric-id "timestamp" new-metric-timestamp "seq" new-seq-value "metric" new-json-metric "aggregation" new-aggregation-value})))
